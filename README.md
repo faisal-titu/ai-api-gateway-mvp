@@ -36,8 +36,9 @@ cd existing-repo
 Install the requirements:
 
 Ensure you have a virtual environment activated (optional but recommended), then install the necessary packages:
-
+```bash
 pip install -r requirements.txt
+```
 
 ## Running the Application
 You can run the FastAPI application in two ways: directly with Python or using Docker.

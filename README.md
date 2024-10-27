@@ -30,8 +30,9 @@ This project implements a FastAPI application for multimodal search, allowing us
 Replace username with the GitHub account name and existing-repo with the name of the repository.
 
 Go to the directory:
-
+```bash
 cd existing-repo
+```
 Install the requirements:
 
 Ensure you have a virtual environment activated (optional but recommended), then install the necessary packages:

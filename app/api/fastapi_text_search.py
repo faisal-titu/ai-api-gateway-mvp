@@ -7,9 +7,9 @@ from typing import List, Union
 import glob
 
 # Import necessary functions and clients
-from multimodal_search.embedding_generation import get_text_embedding, get_image_embedding
-from multimodal_search.search import search_knn
-from multimodal_search.open_search_client import client
+from dev.embedding_generation import get_text_embedding, get_image_embedding
+from dev.search import search_knn
+from dev.open_search_client import client
 import tempfile
 from PIL import Image
 import PIL

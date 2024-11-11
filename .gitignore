@@ -53,3 +53,112 @@ Thumbs.db
 *.png
 *.gif
 
+
+
+# Neural Network weights ---
+*.weights
+*.pt
+*.pb
+*.onnx
+*.engine
+*.mlmodel
+*.torchscript
+*.tflite
+*.h5
+*_saved_model/
+*_web_model/
+*_openvino_model/
+darknet53.conv.74
+yolov3-tiny.conv.15
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Ignoring file format of different data types
+*.png
+*.jpg
+*.csv
+*.npy
+*.json
+*.xml
+*.tsv000
+dataset/unsplash-metadata/*.md
+
+__pycache__
+__pycache__/
+
+# misc
+.DS_Store
+.env
+
+# Editors
+.idea
+*.iml
+.vscode
+*.pyc
+
+#datasets
+*.zip
+*.tar
+*.gz
+*.7z
+*.rar
+*.tar.gz
+*.tar.xz
+*.tar.bz2
+*.tar.lz
+*.tar.lzma
+*.tar.Z
+*.tar.zst
+*.tar.zstd
+*.tar.zstd
+*.tar.br
+*.tar.brotli
+*.tar.gz
+*.tar.lz4
+
+# dataset folders
+dataset/
+dataset2/
+datasets/
+data/
+data-*
+*/data/
+
+# model folders
+models/
+model/
+model-*
+*/model/
+
+# log files
+*.log
+*.log.*
+*.log-*
+
+#json files
+*.json
+*.jsonl
+*.jsonlines
+
+# cache files
+*.cache
+*.cache.*
+*.cache-*
+
+# pycache
+__pycache__/
+*.pyc
+
+
+# .tsv .csv files
+*.csv
+*.tsv
+*.xlsx
+*.tsv000
+
+# SPECIFIC FILES
+# .env
+.env
+
+# ingore a file named text_embedding

@@ -1,0 +1,54 @@
+Description:
+
+This repository contains Python code for setting up a system to process documents using AI embeddings and OpenSearch for search functionality. The system is designed to encode document content into embeddings and then perform similarity-based search queries to retrieve relevant documents.
+
+Setup:
+
+Install Required Packages:
+Ensure Python is installed on your system.
+Install the necessary Python packages using the following command:
+Copy code
+pip install openai langchain unstructured pdf2image tabulate libmagic num2words tiktoken opensearch-py boto3 sentence-transformers
+Model Initialization:
+Initialize a Sentence Transformer model for encoding sentences into embeddings. The model used in this code is all-MiniLM-L6-v2.
+Text Normalization:
+Define a function custom_normalize_text to normalize text data by removing redundant characters and spaces.
+Document Preparation:
+Prepare a list of documents (docs) containing descriptions of AI events.
+Document Encoding:
+Encode each document using the Sentence Transformer model to generate document embeddings (document_embeddings).
+OpenSearch Setup:
+Set up a connection to an OpenSearch (formerly Elasticsearch) instance using the OpenSearch class from the opensearchpy library. Provide the necessary host, port, and authentication credentials.
+Index Creation:
+Create an index named demo in the OpenSearch instance with specific settings and mappings for storing document embeddings.
+Indexing Documents:
+Index each document along with its corresponding embedding into the OpenSearch index.
+User Query Processing:
+Encode a user query using the Sentence Transformer model and perform a nearest neighbor search in the OpenSearch index to find the most relevant document to the user query.
+Search Result Display:
+Display the document most relevant to the user query along with its text content.
+Usage:
+
+Run the Python script containing the code to set up the document processing and search system.
+Provide input documents and queries as required.
+Retrieve relevant documents based on semantic similarity to the user query.
+Dependencies:
+
+Python 3.x
+Required Python packages:
+opensearch-py
+boto3
+sentence-transformers
+
+Contributing:
+
+Contributions to improve the code or add new features are welcome. Please open an issue or pull request for discussion.
+License:
+
+This code is provided under the MIT License. See the LICENSE file for details.
+Author:
+
+Acknowledgments:
+
+Thanks to the developers of the open-source libraries used in this project for their contributions.
+Inspiration for this project came from the need to efficiently search and retrieve relevant documents based on semantic similarity.

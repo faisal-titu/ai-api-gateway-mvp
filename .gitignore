@@ -162,3 +162,9 @@ __pycache__/
 .env
 
 # ingore a file named text_embedding
+
+# ignore the project_structure.txt file
+project_structure.txt
+
+#ignore the extract.py file
+extract.py

@@ -1,4 +1,5 @@
-from open_search_client import client
+# from open_search_client import client
+
 
 def create_index(client, index_name):
     # Create the index

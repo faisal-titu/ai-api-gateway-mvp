@@ -68,14 +68,14 @@ def generate_face_embeddings(image: Image.Image, detected_faces: List[dict], ind
 
         face_id = generate_face_id()
 
-        if index_name:
-            client.index(
-                index=index_name,
-                body={
-                    "my_vector": embedding,
-                    "face_id": face_id
-                }
-            )
+        # if index_name:
+        #     client.index(
+        #         index=index_name,
+        #         body={
+        #             "my_vector": embedding,
+        #             "face_id": face_id
+        #         }
+        #     )
 
         embeddings.append({
             "face_id": face_id,

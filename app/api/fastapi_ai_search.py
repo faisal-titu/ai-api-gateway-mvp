@@ -1,23 +1,22 @@
 # Standard library imports
-import argparse
-import glob
 import io
-import logging
 import os
+import glob
 import uuid
+import asyncio
+import logging
+import argparse
 import tempfile
 from typing import List, Optional
-import asyncio
 from typing import Dict, Any, Optional
 
 
 # Third-party library imports
 import PIL
 from PIL import Image
-from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile, APIRouter
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
 from torch.utils.data import DataLoader
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile, APIRouter
 
 # Local application imports
 from dev.image_embedding.create_image_index import create_index
@@ -36,6 +35,23 @@ from dev.face_embedding.face_dataloader import CroppedFaceDataset
 from dev.face_embedding.face_embedding_generation import generate_embeddings_and_index
 from dev.face_embedding.single_image_processing import detect_faces_in_image, generate_face_embeddings
 from dev.face_embedding.face_search import perform_knn_search
+
+#import data models
+from app.model.data_model import (
+    TextQueryRequest,
+    SearchResult,
+    ImageSearchResult,
+    ImageSearchRequest,
+    SettingsRequest,
+    ProcessedImage,
+    FaceEmbedding,
+    FaceDetectionResult,
+    IndexingDetail,
+    BatchEmbeddingDetails,
+    BatchFaceEmbeddingResult,
+    CombinedSearchDetail,
+    CombinedSearchResponse,
+)
 
 # Initialize FastAPI app
 app = FastAPI(title="AI Search API")
@@ -125,75 +141,6 @@ IMAGE_DIR = ""
 image_router = APIRouter(prefix="/images", tags=["Image Operations"])
 text_router = APIRouter(prefix="/texts", tags=["Text Operations"])
 face_router = APIRouter(prefix="/faces", tags=["Face Operations"])
-
-# Define the input data model
-class TextQueryRequest(BaseModel):
-    query: str
-    num_images: int = 5
-
-# Define the response model
-class SearchResult(BaseModel):
-    image_ids: List[str]
-
-# Define the response model for image search results
-class ImageSearchResult(BaseModel):
-    query_image_id: str
-    similar_image_ids: List[str]
-
-class ImageSearchRequest(BaseModel):
-    num_images: int
-
-# Endpoint to dynamically set index name and image directory
-class SettingsRequest(BaseModel):
-    index_name: str
-    image_dir: str
-
-class ProcessedImage(BaseModel):
-    bounding_box: List[int]
-    confidence: float
-    cropped_width: int
-    cropped_height: int
-    cropped_resolution: str
-    cropped_image_path: str
-
-class FaceEmbedding(BaseModel):
-    # Adjust the fields based on your actual embedding structure
-    face_id: str
-    box: List[int]
-    embedding: List[float] 
-
-class FaceDetectionResult(BaseModel):
-    status: str
-    image_name: str
-    total_faces_detected: int
-    processed_images: List[ProcessedImage]
-    embeddings: List[FaceEmbedding]
-
-class IndexingDetail(BaseModel):
-    image_name: str
-    face_id: Optional[str]
-    status: str  # e.g., "indexed" or "error"
-    error_message: Optional[str] = None
-
-class BatchEmbeddingDetails(BaseModel):
-    total_images_processed: int
-    total_faces_detected: int
-    total_embeddings_indexed: int
-    indexing_details: List[IndexingDetail]
-
-class BatchFaceEmbeddingResult(BaseModel):
-    status: str
-    face_crop_dir: str
-    details: BatchEmbeddingDetails
-
-class CombinedSearchDetail(BaseModel):
-    image_search: Optional[ImageSearchResult]
-    face_search: Optional[Dict[str, Any]]
-
-class CombinedSearchResponse(BaseModel):
-    status: str
-    details: CombinedSearchDetail
-    error: Optional[str] = None
 
 @app.post("/set-settings")
 async def set_settings(settings: SettingsRequest):
@@ -396,6 +343,7 @@ async def search_similar_faces(
     try:
         # Open the uploaded image
         image = Image.open(file.file)
+        logger.debug(f"Image read successfully: {file.filename}")
         if image.mode != "RGB":
             logger.warning(f"Image mode was not in RGB format. Converting to RGB.")
             image = image.convert("RGB")
@@ -409,27 +357,33 @@ async def search_similar_faces(
                 "image_name": file.filename,
                 "processed_images": []
             }
-
+        logger.debug(f"Detected {len(detected_faces)} faces in image: {file.filename}")
         # Prepare the search results
         search_results = []
         for index, face in enumerate(detected_faces):
             # Extract bounding box
             x_min, y_min, x_max, y_max = face["box"]
+            logger.debug(f"Face {index + 1} bounding box: {x_min, y_min, x_max, y_max}")
 
             # Crop the face
             cropped_face = image.crop((x_min, y_min, x_max, y_max))
+            logger.debug(f"Cropped face dimensions: {cropped_face.size}")
+
             with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
                 cropped_face.save(tmp, format="JPEG")
                 tmp.seek(0)
                 cropped_face_path = tmp.name
 
             # Generate embedding for the cropped face
-            embedding = get_image_embedding(cropped_face_path)
+            # embedding = get_image_embedding(cropped_face_path)
+            embedding = generate_face_embeddings(cropped_face, [face])[0]['embedding']
+            logger.debug(f"Face {index + 1} embedding generated")
 
             # Perform the face similarity search
             response = search_knn(embedding, index_name, k)
             similar_faces = [hit['_source'] for hit in response['hits']['hits']]
-
+            logger.debug(f"Search for image {file.filename} found {len(similar_faces)} similar faces")
+            logger.debug(f"Similar faces Ids: {[face['face_id'] for face in similar_faces]}")
             search_results.append({
                 "face_id": str(uuid.uuid4()),
                 "box": face["box"],
@@ -477,6 +431,7 @@ async def detect_faces_batch(image_dir: str = Query(...), face_crop_dir: str = Q
 
                 # Detect faces in the image
                 detected_faces = detect_faces_in_image(image)
+                logger.debug(f"Detected faces in image: {image_file}")
                 total_faces = len(detected_faces)
                 logger.debug(f"Detected {total_faces} faces in image: {image_file}")
 
@@ -488,10 +443,11 @@ async def detect_faces_batch(image_dir: str = Query(...), face_crop_dir: str = Q
                     y1 = max(0, y1 - margin)
                     x2 = min(image.width, x2 + margin)
                     y2 = min(image.height, y2 + margin)
-                    
+                    logger.debug(f"Face bounding box for {image_file}: {x1, y1, x2, y2}")
                     cropped_width = x2 - x1
                     cropped_height = y2 - y1
                     cropped_resolution = f"{cropped_width}x{cropped_height}"
+                    logger.debug(f"Cropped face resolution: {cropped_resolution}")
 
                     # Save the cropped face to the specified directory
                     face_crop = image.crop((x1, y1, x2, y2))
@@ -525,7 +481,7 @@ async def detect_faces_batch(image_dir: str = Query(...), face_crop_dir: str = Q
                     "error": str(image_error)
                 })
 
-        logger.debug(f"Batch processing results: {batch_results}")
+        logger.info(f"Batch face detection completed for directory: {image_dir}")
         return {
             "status": "Batch processing completed",
             "total_images_processed": len(batch_results),

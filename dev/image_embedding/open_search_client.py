@@ -1,7 +1,7 @@
 from opensearchpy import OpenSearch
 
-# host = [{'host': 'opensearch-node1', 'port': 9200}]
-host = [{'host': 'localhost', 'port': 9200}]
+host = [{'host': 'opensearch-node1', 'port': 9200}]
+# host = [{'host': 'localhost', 'port': 9200}]
 
 def get_client():
 

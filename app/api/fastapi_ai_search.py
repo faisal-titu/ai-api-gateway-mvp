@@ -84,7 +84,7 @@ logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s [%(filename)s:%(lineno)d]",
     handlers=[
         logging.StreamHandler(),  # Log to console
-        logging.FileHandler("/home/iot/Desktop/ai_search_fastapi/ai-api-gateway-mvp/logs/app.log")  # Log to a file
+        logging.FileHandler("/app/logs/app.log")  # Log to a file
     ]
 )
 logger = logging.getLogger(__name__)

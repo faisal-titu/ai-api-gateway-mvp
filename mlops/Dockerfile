@@ -22,6 +22,9 @@ COPY ../dev ./dev
 # Expose the port that the FastAPI app runs on
 EXPOSE 8000
 
+# Create the logs directory
+RUN mkdir -p /app/logs
+
 # Define environment variable
 ENV PYTHONUNBUFFERED=1
 

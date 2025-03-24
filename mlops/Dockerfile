@@ -4,6 +4,9 @@ FROM python:3.9-slim
 # Set the working directory inside the Docker container
 WORKDIR /app
 
+# Declare the datalake volume mount point
+VOLUME ["/app/datalake"]
+
 # Install git
 RUN apt-get update && apt-get install -y git
 
@@ -18,6 +21,10 @@ COPY ../app ./app
 
 # Copy the dev directory to the container
 COPY ../dev ./dev
+
+# Copy pre-downloaded models into the container
+COPY ./model/clip /app/model/clip
+COPY ./model/face /app/model/face
 
 # Expose the port that the FastAPI app runs on
 EXPOSE 8000

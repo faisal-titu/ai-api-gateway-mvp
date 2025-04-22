@@ -126,10 +126,10 @@ data-*
 */data/
 
 # model folders
-models/
-model/
-model-*
-*/model/
+# models/
+# model/
+# model-*
+# */model/
 
 # log files
 *.log

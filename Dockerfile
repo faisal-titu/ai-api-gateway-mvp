@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y \
 
 # Copy requirements and install Python dependencies
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install -r requirements.txt
 
 # Copy application code
 COPY app ./app
@@ -21,6 +21,7 @@ COPY dev ./dev
 COPY model/clip /app/model/clip
 COPY model/face /app/model/face
 
+# ENV TORCHSERVE_URL=http://host.docker.internal:8080/predictions/clip
 # Expose port
 EXPOSE 8000
 

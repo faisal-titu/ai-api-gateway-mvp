@@ -16,16 +16,6 @@ This project implements a FastAPI application for multimodal search, allowing us
    - [Using Python](#using-python)  
    - [Using Docker](#using-docker)  
 4. [Endpoints](#endpoints)  
-   - [Text to Image Search](#text-to-image-search)  
-   - [Batch Index Texts](#batch-index-texts)  
-   - [Image to Image Search](#image-to-image-search)  
-   - [Batch Index Images](#batch-index-images)  
-   - [Face Detection in Single Image](#face-detection-in-single-image)  
-   - [Face Detection in Batch](#face-detection-in-batch)  
-   - [Face Embedding for Single Image](#face-embedding-for-single-image)  
-   - [Face Embedding for Batch](#face-embedding-for-batch)  
-   - [Face Search](#face-search)  
-   - [Combined Search](#combined-search)  
 5. [License](#license)  
 6. [Instructions to Update](#instructions-to-update)  
 
@@ -82,55 +72,264 @@ Run the FastAPI application using Docker:
 
 ## Endpoints
 
-### Text to Image Search
-- **Description:** Perform a text-to-image search.  
-- **Endpoint:** `/texts/search`  
-- **Method:** POST  
+Below is a detailed reference for every FastAPI endpoint. Each entry includes:
+- **What** the endpoint does
+- **How** to call it (HTTP method, URL, headers)
+- **Example Request** (cURL)
+- **Example Response**
 
-**Example Request:**  
+---
+
+### Root
+**GET /**
+
+What: Health check and welcome message.
+
+How:
 ```bash
-curl -X POST "http://127.0.0.1:8000/texts/search" \
--H "accept: application/json" \
--H "Content-Type: application/json" \
--d '{"query": "A beautiful sunset over the mountains", "num_images": 5}'
+curl -X GET http://localhost:8000/
+```
+Example Response:
+```json
+{ "message": "Welcome to the AI Search API" }
 ```
 
 ---
 
-### Batch Index Texts
-- **Description:** Index a batch of text data.  
-- **Endpoint:** `/texts/batch-index`  
-- **Method:** POST  
+### Settings
+**POST /set-settings**
 
-**Example Request:**  
+What: Configure which OpenSearch index and image directory to use for subsequent searches and batch operations.
+
+How:
 ```bash
-curl -X POST "http://127.0.0.1:8000/texts/batch-index" \
--H "accept: application/json" \
--H "Content-Type: application/json" \
--d '{"texts": ["Text 1", "Text 2", "Text 3"]}'
+curl -X POST http://localhost:8000/set-settings \
+  -H "Content-Type: application/json" \
+  -d '{
+        "index_name": "my_index",
+        "image_dir": "/app/datalake/images"
+      }'
+```
+Example Response:
+```json
+{
+  "message": "Settings updated successfully",
+  "index_name": "my_index",
+  "image_dir": "/app/datalake/images"
+}
 ```
 
 ---
 
-### Image to Image Search
-- **Description:** Perform an image-to-image search.  
-- **Endpoint:** `/images/search`  
-- **Method:** POST  
+### Metrics
+**GET /metrics**
 
-**Example Request:**  
+What: Exposes Prometheus metrics for monitoring (latency, request counts, custom histograms).
+
+How:
 ```bash
-curl -X POST "http://127.0.0.1:8000/images/search" \
--H "accept: application/json" \
--H "Content-Type: multipart/form-data" \
--F "file=@/path/to/your/image.jpg" \
--F "num_images=5"
+curl -X GET http://localhost:8000/metrics
+```
+
+**GET /test-metrics**
+
+What: Simple counter endpoint for testing instrumentation.
+
+How:
+```bash
+curl -X GET http://localhost:8000/test-metrics
+```
+Example Response:
+```
+# HELP test_counter_total Test counter for debugging
+# TYPE test_counter_total counter
+... 1.0
 ```
 
 ---
 
-### [Other Endpoints](#endpoints)  
+### Text Search
+**POST /texts/search**
 
-See the full list of endpoints for additional functionality such as face detection, embeddings, and combined searches.
+What: Proxy text query to TorchServe CLIP for text-to-image search.
+
+How:
+```bash
+curl -X POST http://localhost:8000/texts/search \
+  -H "Content-Type: application/json" \
+  -d '{
+        "query": "a photo of a cat",
+        "num_images": 5
+      }'
+```
+Example Response:
+```json
+{ "image_ids": ["gQFZxLe3m4g", "pesu5W2yXmQ", "5py1uD3sxNA", ...] }
+```
+
+---
+
+### Batch Index Text
+**POST /texts/batch-index**
+
+What: Read a JSON-lines file of text metadata, generate embeddings locally, and bulk-index into OpenSearch.
+
+How:
+```bash
+curl -X POST "http://localhost:8000/texts/batch-index?index_name=my_text_index&text_file_path=/app/datalake/meta.jsonl"
+```
+
+---
+
+### Image Search
+**POST /images/search**
+
+What: Proxy image file to TorchServe CLIP for image-to-image search.
+
+How:
+```bash
+curl -X POST http://localhost:8000/images/search \
+  -F "file=@/path/to/image.jpg" \
+  -F "num_images=5"
+```
+Example Response:
+```json
+{
+  "query_image_id": "image.jpg",
+  "similar_image_ids": ["GH_b1WXHKbU", "hfs2ierY1mY", ...]
+}
+```
+
+---
+
+### Batch Index Images
+**POST /images/batch-index**
+
+What: Walk a folder of images inside the container, generate CLIP embeddings locally, and bulk-index into OpenSearch.
+
+How:
+```bash
+curl -X POST "http://localhost:8000/images/batch-index?index_name=my_image_index&image_dir=/app/datalake/small_1000"
+```
+
+---
+
+### Face Detection (Single)
+**POST /faces/detection/single**
+
+What: Detect and crop faces in one uploaded image.
+
+How:
+```bash
+curl -X POST http://localhost:8000/faces/detection/single \
+  -F "file=@/path/to/portrait.jpg"
+```
+Example Response (one face):
+```json
+{
+  "status": "Faces detected",
+  "image_name": "portrait.jpg",
+  "total_faces_detected": 1,
+  "processed_images": [
+    {
+      "bounding_box": [x1, y1, x2, y2],
+      "confidence": 0.99,
+      "cropped_width": 150,
+      "cropped_height": 150,
+      "cropped_resolution": "150x150",
+      "cropped_image_path": "datalake/cropped_faces/1234_face_1.jpg"
+    }
+  ]
+}
+```
+
+---
+
+### Face Detection (Batch)
+**POST /faces/detection/batch**
+
+What: Detect and crop faces in every image under a directory.
+
+How:
+```bash
+curl -X POST "http://localhost:8000/faces/detection/batch?image_dir=/app/facenet_data/original_images&face_crop_dir=/app/facenet_data/crops"
+```
+
+---
+
+### Face Embedding (Single)
+**POST /faces/embedding/single**
+
+What: Detect, embed, and optionally index faces in one image.
+
+How:
+```bash
+curl -X POST "http://localhost:8000/faces/embedding/single?index_name=my_face_index" \
+  -F "file=@/path/to/portrait.jpg"
+```
+
+---
+
+### Face Embedding (Batch)
+**POST /faces/embedding/batch**
+
+What: Detect, embed, and bulk-index faces from all cropped images in a folder.
+
+How:
+```bash
+curl -X POST "http://localhost:8000/faces/embedding/batch?image_dir=/app/facenet_data/original_images&face_crop_dir=/app/facenet_data/crops&index_name=my_face_index&batch_size=32"
+```
+
+---
+
+### Face Search
+**POST /faces/search**
+
+What: Given an image, detect and embed faces locally, then perform KNN lookup in OpenSearch index.
+
+How:
+```bash
+curl -X POST "http://localhost:8000/faces/search?index_name=my_face_index&k=5" \
+  -F "file=@/path/to/portrait.jpg"
+```
+Example Response:
+```json
+{
+  "status": "Search completed",
+  "image_name": "portrait.jpg",
+  "total_faces_detected": 1,
+  "search_results": [
+    {
+      "face_id": "abcd1234",
+      "box": [x1,y1,x2,y2],
+      "similar_faces": [ {"image_id":"img1","face_id":"f1","score":0.95}, ... ]
+    }
+  ]
+}
+```
+
+---
+
+### Combined Search
+**POST /combined/search**
+
+What: In parallel, perform image-based search and face-based search for one upload.
+
+How:
+```bash
+curl -X POST "http://localhost:8000/combined/search?image_index=my_image_index&face_index=my_face_index&num_images=5" \
+  -F "file=@/path/to/portrait.jpg"
+```
+Example Response:
+```json
+{
+  "status": "success",
+  "details": {
+    "image_search": { "query_image_id":"portrait.jpg","similar_image_ids":["id1",... ]},
+    "face_search": { ... }
+  }
+}
+```
 
 ---
 

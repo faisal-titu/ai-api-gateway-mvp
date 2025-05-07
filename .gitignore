@@ -77,6 +77,12 @@ yolov3-tiny.conv.15
 # Ignoring file format of different data types
 *.png
 *.jpg
+*.jpeg
+*.gif
+*.bmp
+*.tiff
+*.webp
+*.JPG
 *.csv
 *.npy
 *.json

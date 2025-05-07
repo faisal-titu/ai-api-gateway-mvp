@@ -58,9 +58,9 @@ from dev.text_embedding.text_batch_embedding import (
     create_text_dataloader,
     generate_text_embeddings,
 )
-from dev.face_embedding.face_detection import detect_and_crop_faces
+from dev.face_embedding.face_detection import detect_faces_and_save, generate_face_id
 from dev.face_embedding.face_dataloader import CroppedFaceDataset
-from dev.face_embedding.face_embedding_generation import generate_embeddings_and_index
+from dev.face_embedding.face_embedding_generation import generate_embeddings_and_index, generate_embedding_for_single_image
 from dev.face_embedding.single_image_processing import detect_faces_in_image, generate_face_embeddings
 from dev.face_embedding.face_search import perform_knn_search
 
@@ -432,69 +432,79 @@ async def detect_faces_in_single_image(file: UploadFile = File(...)):
         logger.critical(f"Critical error detecting faces in single image: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"An error occurred: {e}")
 
-@face_router.post("/search")
-async def search_similar_faces(
+@face_router.post("/face-search")
+async def visual_face_search(
     file: UploadFile = File(...),
     index_name: str = Query(...),
-    k: int = Query(5)
+    num_results: int = Query(10)
+    # face_crop_dir: str = Query(...)
 ):
-    logger.info(f"Received request to search for similar faces using file: {file.filename}")
+    """
+    Visual search endpoint that returns matched image paths for visualization.
+    """
+    logger.info(f"Received visual face search request for file: {file.filename}")
     try:
-        # Open the uploaded image
-        image = Image.open(file.file)
+        # Read and validate the uploaded image
+        content = await file.read()
+        if not content:
+            raise HTTPException(status_code=400, detail="Empty file")
+            
+        image = Image.open(io.BytesIO(content))
         if image.mode != "RGB":
             image = image.convert("RGB")
-        
-        # Time face detection
+            
+        # Detect faces
         with embedding_generation_duration.labels(operation_type="face_detection").time():
             detected_faces = detect_faces_in_image(image)
-            if not detected_faces:
-                logger.warning(f"No faces detected in image: {file.filename}")
-                return {
-                    "status": "No faces detected",
-                    "image_name": file.filename,
-                    "processed_images": []
-                }
-        
-        # Process each detected face
-        search_results = []
-        for index, face in enumerate(detected_faces):
-            # Extract and crop face
-            x_min, y_min, x_max, y_max = face["box"]
-            cropped_face = image.crop((x_min, y_min, x_max, y_max))
             
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
+        if not detected_faces:
+            return {"status": "No faces detected", "matches": []}
+            
+        # Use the first detected face
+        face = detected_faces[0]
+        x_min, y_min, x_max, y_max = face["box"]
+        cropped_face = image.crop((x_min, y_min, x_max, y_max))
+        
+        # Generate embedding for the face
+        with embedding_generation_duration.labels(operation_type="face_embedding").time():
+            with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
                 cropped_face.save(tmp, format="JPEG")
-                tmp.seek(0)
-                cropped_face_path = tmp.name
+                tmp_path = tmp.name
+                embedding = generate_embedding_for_single_image(tmp_path)
+                os.unlink(tmp_path)  # Clean up temporary file
+                
+        # Search for similar faces
+        with search_duration.labels(search_type="face").time():
+            response = search_knn(embedding, index_name, num_results)
             
-            # Time face embedding generation
-            with embedding_generation_duration.labels(operation_type="face").time():
-                embedding = generate_face_embeddings(cropped_face, [face])[0]['embedding']
-                logger.debug(f"Face {index + 1} embedding generated")
+        # Extract image IDs and prepare result paths
+        matches = []
+        for hit in response['hits']['hits']:
+            image_id = hit['_source'].get('image_id', 'unknown')
+            face_id = hit['_source'].get('face_id', 'unknown')
+            score = hit['_score']
             
-            # Time face search operation
-            with search_duration.labels(search_type="face").time():
-                with opensearch_request_duration.labels(operation="search").time():
-                    response = search_knn(embedding, index_name, k)
-                    similar_faces = [hit['_source'] for hit in response['hits']['hits']]
-            
-            search_results.append({
-                "face_id": str(uuid.uuid4()),
-                "box": face["box"],
-                "similar_faces": similar_faces
+            # Get actual image path
+            if '_' in image_id:  # Format: original_image_id_face_id.jpg
+                original_id = image_id.split('_')[0]  # Extract original image ID
+            else:
+                original_id = image_id
+                
+            matches.append({
+                "image_id": original_id,
+                "face_id": face_id,
+                "score": score,
+                # "image_path": f"{face_crop_dir}/{image_id}.jpg"
             })
-        
+            
         return {
             "status": "Search completed",
-            "image_name": file.filename,
+            "query_image": file.filename,
             "total_faces_detected": len(detected_faces),
-            "search_results": search_results
+            "matches": matches
         }
-    
     except Exception as e:
-        logger.error(f"Error during face search: {e}", exc_info=True)
-        logger.critical(f"Critical error during face search: {e}", exc_info=True)
+        logger.error(f"Error during visual face search: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"An error occurred: {e}")
 
 @face_router.post("/detection/batch")
@@ -717,7 +727,7 @@ async def embed_faces_batch(
                 image_path = os.path.join(image_dir, image_file)
                 try:
                     logger.debug(f"Processing image: {image_file}")
-                    faces_detected = detect_and_crop_faces(image_path, face_crop_dir)
+                    faces_detected = detect_faces_and_save(image_path, face_crop_dir)
                     total_images_processed += 1
                     total_faces_detected += len(faces_detected)  # Assuming faces_detected is an integer
                     logger.debug(f"Detected {len(faces_detected)} faces in image: {image_file}")
@@ -889,7 +899,88 @@ async def combined_search(
         if 'tmp_path' in locals():
             os.unlink(tmp_path)
             logger.debug(f"Temporary file {tmp_path} deleted.")
+
+@face_router.post("/process-face-dataset")
+async def process_face_dataset(
+    dataset_dir: str = Query(..., description="Directory containing original images"),
+    face_crop_dir: str = Query(..., description="Directory to save cropped faces"),
+    index_name: str = Query(..., description="Name for OpenSearch index")
+):
+    """
+    Process a dataset of images, detect faces, crop them, generate embeddings,
+    and index them in OpenSearch with image_id_face_id naming pattern.
+    """
+    logger.info(f"Processing dataset in: {dataset_dir}")
+    try:
+        # Ensure the face crop directory exists
+        os.makedirs(face_crop_dir, exist_ok=True)
+        
+        # Create the index in OpenSearch
+        with opensearch_request_duration.labels(operation="create_index").time():
+            create_index(client, index_name)
+            logger.debug(f"Index {index_name} created or already exists")
             
+        # Process each image in the dataset directory
+        image_files = [f for f in os.listdir(dataset_dir) if f.lower().endswith(('.jpg', '.jpeg', '.png'))]
+        logger.info(f"Found {len(image_files)} image files to process")
+        
+        total_images = len(image_files)
+        total_faces = 0
+        actions = []
+        
+        # Process images and detect faces
+        for image_file in tqdm(image_files, desc="Processing images"):
+            image_path = os.path.join(dataset_dir, image_file)
+            
+            # Detect faces and save crops with image_id_face_id pattern
+            with embedding_generation_duration.labels(operation_type="face_detection").time():
+                cropped_faces = detect_faces_and_save(image_path, face_crop_dir)
+                total_faces += len(cropped_faces)
+                
+            # Generate embeddings for each cropped face and prepare for indexing
+            for face_path in cropped_faces:
+                with embedding_generation_duration.labels(operation_type="face_embedding").time():
+                    # Extract face_id and image_id from filename
+                    filename = os.path.basename(face_path)
+                    image_id = os.path.splitext(filename)[0]  # This already includes image_id_face_id
+                    face_id = generate_face_id()
+                    
+                    # Generate embedding
+                    embedding = generate_embedding_for_single_image(face_path)
+                    
+                    if embedding is not None:
+                        # Create action for bulk indexing
+                        action = {
+                            "_index": index_name,
+                            "_id": face_id,
+                            "_source": {
+                                "my_vector": embedding,
+                                "image_id": image_id,
+                                "face_id": face_id
+                            }
+                        }
+                        actions.append(action)
+        
+        # Bulk index the embeddings
+        indexed_count = 0
+        if actions:
+            with opensearch_request_duration.labels(operation="bulk_index").time():
+                success, failed = bulk(client, actions, stats_only=True)
+                indexed_count = success
+                logger.info(f"Indexed {success} embeddings. Failed: {failed}")
+        
+        return {
+            "status": "Dataset processing completed",
+            "total_images_processed": total_images,
+            "total_faces_detected": total_faces,
+            "total_embeddings_indexed": indexed_count
+        }
+        
+    except Exception as e:
+        logger.error(f"Error processing dataset: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"An error occurred: {e}")
+
+
 # --------------------
 # Root Endpoint
 # --------------------

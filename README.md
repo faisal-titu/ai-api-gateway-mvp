@@ -1,7 +1,3 @@
-Here's a properly formatted version of your README for Bitbucket:
-
----
-
 # FastAPI AI Search
 
 This project implements a FastAPI application for multimodal search, allowing users to perform text-to-image and image-to-image searches.

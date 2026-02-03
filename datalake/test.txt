@@ -1,0 +1,33 @@
+curl -X 'POST' \
+  'http://0.0.0.0:8000/images/batch-index?index_name=trial_indexing&image_dir='/home/iot/Desktop/ai_search_fastapi/ai-api-gateway-mvp/datalake/small_1000' \
+  -H 'accept: application/json' \
+  -d ''
+  
+
+curl -X POST "http://localhost:8000/images/batch-index?index_name=unsplash_index&image_dir=/app/datalake/images"
+/home/iot/Desktop/ai_search_fastapi/ai-api-gateway-mvp/datalake/small_1000
+
+
+
+docker run -d \
+  --name fastapi-ai-search \
+  --network without_security_opensearch-net \
+  -p 8000:8000 \
+  -v /home/iot/Desktop/ai_search_fastapi/ai-api-gateway-mvp/datalake:/app/datalake \
+  -e ENABLE_METRICS=true \
+  fastapi-ai-search
+  
+  
+  
+  
+  docker stop fastapi-ai-search && docker rm fastapi-ai-search
+
+docker run \
+  --name fastapi-ai-search \
+  --network without_security_opensearch-net \
+  --add-host host.docker.internal:host-gateway \
+  -p 8000:8000 \
+  -v /home/iot/Desktop/ai_search_fastapi/ai-api-gateway-mvp:/app \
+  -e ENABLE_METRICS=true \
+  -e TORCHSERVE_URL=http://host.docker.internal:8080/predictions/clip \
+  fastapi-ai-search

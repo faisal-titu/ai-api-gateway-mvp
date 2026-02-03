@@ -1,16 +1,16 @@
 import os
+
 import clip
 import torch
-from opensearchpy.helpers import bulk
-from torchvision import datasets, transforms
-from torch.utils.data import DataLoader
 from open_search_client import client
-
+from opensearchpy.helpers import bulk
+from torch.utils.data import DataLoader
+from torchvision import datasets, transforms
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 model, preprocess = clip.load("ViT-B/32", device=device)
 
-def create_dataloader(image_dir, batch_size=20, num_workers=4):
+def create_dataloader(image_dir, batch_size=32, num_workers=4):
     transform = transforms.Compose([
         transforms.Resize((224, 224)), 
         transforms.ToTensor(),

@@ -1,23 +1,39 @@
-# Step 1: Use an official Python runtime as a parent image
-FROM python:3.10-slim
+# Use an official Python runtime as a parent image
+FROM python:3.9-slim
 
-# Step 2: Set the working directory inside the Docker container
+# Set the working directory inside the Docker container
 WORKDIR /app
 
+# Declare the datalake volume mount point
+VOLUME ["/app/datalake"]
+
+# Install git
 RUN apt-get update && apt-get install -y git
 
+# Copy the requirements file into the Docker container
+COPY ../requirements.txt .
 
-# Step 3: Copy the requirements file into the Docker container
-COPY requirements.txt .
-
-# Step 4: Install any dependencies required by the application
+# Install any dependencies required by the application
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Step 5: Copy the rest of the FastAPI application code to the container
-COPY . .
+# Copy the FastAPI application code to the container
+COPY ../app ./app
 
-# Step 6: Expose the port that the FastAPI app runs on
+# Copy the dev directory to the container
+COPY ../dev ./dev
+
+# Copy pre-downloaded models into the container
+COPY ./model/clip /app/model/clip
+COPY ./model/face /app/model/face
+
+# Expose the port that the FastAPI app runs on
 EXPOSE 8000
 
-# Step 7: Command to run the FastAPI app with Uvicorn
-CMD ["uvicorn", "fastapi_text_search:app", "--host", "0.0.0.0", "--port", "8000"]
+# Create the logs directory
+RUN mkdir -p /app/logs
+
+# Define environment variable
+ENV PYTHONUNBUFFERED=1
+
+# Command to run the FastAPI app with Uvicorn
+CMD ["uvicorn", "app.api.fastapi_ai_search:app", "--host", "0.0.0.0", "--port", "8000"]

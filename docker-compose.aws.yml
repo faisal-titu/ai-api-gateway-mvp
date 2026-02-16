@@ -1,0 +1,52 @@
+services:
+  # ---- OpenSearch (single node, minimal heap) ----
+  opensearch-node1:
+    image: opensearchproject/opensearch:2.11.0
+    container_name: opensearch-node1
+    environment:
+      - cluster.name=opensearch-cluster
+      - node.name=opensearch-node1
+      - discovery.type=single-node
+      - bootstrap.memory_lock=true
+      - "OPENSEARCH_JAVA_OPTS=-Xms256m -Xmx256m"
+      - "DISABLE_INSTALL_DEMO_CONFIG=true"
+      - "DISABLE_SECURITY_PLUGIN=true"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - opensearch-data:/usr/share/opensearch/data
+    ports:
+      - "9200:9200"
+    networks:
+      - app-net
+    restart: unless-stopped
+
+  # ---- FastAPI App (image + text search only) ----
+  ai-search-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.aws
+    container_name: ai-search-api
+    environment:
+      - OPENSEARCH_HOST=opensearch-node1
+      - OPENSEARCH_PORT=9200
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./datalake:/app/datalake
+    depends_on:
+      - opensearch-node1
+    networks:
+      - app-net
+    restart: unless-stopped
+
+volumes:
+  opensearch-data:
+
+networks:
+  app-net:

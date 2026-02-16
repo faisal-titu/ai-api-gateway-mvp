@@ -174,3 +174,6 @@ project_structure.txt
 
 #ignore the extract.py file
 extract.py
+
+#ignore the datalake folder and all its contents
+datalake/*

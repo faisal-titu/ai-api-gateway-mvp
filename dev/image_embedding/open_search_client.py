@@ -1,7 +1,7 @@
+import os
 from opensearchpy import OpenSearch
 
-host = [{'host': 'opensearch-node1', 'port': 9200}]
-# host = [{'host': 'localhost', 'port': 9200}]
+host = [{'host': os.getenv('OPENSEARCH_HOST', 'opensearch-node1'), 'port': int(os.getenv('OPENSEARCH_PORT', 9200))}]
 
 def get_client():
 

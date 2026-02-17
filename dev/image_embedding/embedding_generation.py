@@ -30,17 +30,15 @@ def load_clip_model():
         # Try Docker path first
         if os.path.exists(DOCKER_CLIP_DIR):
             print(f"Loading CLIP model from Docker path: {DOCKER_CLIP_DIR}")
-            os.environ["CLIP_MODEL_DIR"] = DOCKER_CLIP_DIR
-            model, preprocess = clip.load("ViT-B/32", device=device)
+            model, preprocess = clip.load("ViT-B/32", device=device, download_root=DOCKER_CLIP_DIR, jit=False)
         # Then try local path
         elif os.path.exists(CLIP_DIR):
             print(f"Loading CLIP model from local path: {CLIP_DIR}")
-            os.environ["CLIP_MODEL_DIR"] = CLIP_DIR
-            model, preprocess = clip.load("ViT-B/32", device=device)
+            model, preprocess = clip.load("ViT-B/32", device=device, download_root=CLIP_DIR, jit=False)
         # Fall back to download
         else:
             print("Local model directories not found, downloading model...")
-            model, preprocess = clip.load("ViT-B/32", device=device)
+            model, preprocess = clip.load("ViT-B/32", device=device, jit=False)
         
         print("CLIP model loaded successfully")
         return True

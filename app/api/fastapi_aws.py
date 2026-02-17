@@ -232,7 +232,7 @@ async def bulk_index_from_file(index_name: str = Query(...), file_path: str = Qu
                 }
 
     try:
-        success, failed = bulk(client, generate_actions(), stats_only=True)
+        success, failed = bulk(client, generate_actions(), stats_only=True, chunk_size=50)
         logger.info(f"File indexing complete: {success} indexed, {failed} errors")
         return {"indexed": success, "errors": failed}
     except Exception as e:

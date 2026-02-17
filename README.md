@@ -1,342 +1,200 @@
-# FastAPI AI Search
+# AI Image Search Engine (API Gateway MVP)
 
-This project implements a FastAPI application for multimodal search, allowing users to perform text-to-image and image-to-image searches.
+A powerful, multimodal search engine that combines **OpenAI CLIP** (semantic understanding) and **AWS OpenSearch** (vector database) to enable natural language search for images and reverse image search.
 
----
-
-## Table of Contents
-
-1. [Prerequisites](#prerequisites)  
-2. [Installation](#installation)  
-3. [Running the Application](#running-the-application)  
-   - [Using Python](#using-python)  
-   - [Using Docker](#using-docker)  
-4. [Endpoints](#endpoints)  
-5. [License](#license)  
-6. [Instructions to Update](#instructions-to-update)  
+This project features a modern **FastAPI** backend and a **Tailwind CSS** frontend with Glassmorphism UI.
 
 ---
 
-## Prerequisites
-- Python 3.8 or higher  
-- Pip (Python package installer)  
-- Docker (if you choose to run the application using Docker)  
+## 🚀 Features
+
+-   **Semantic Text Search**: "Find a sad dog in the rain" (Understands context, not just keywords).
+-   **Reverse Image Search**: Upload an image to find visually similar results.
+-   **High Performance**: Uses approximate nearest neighbor search (k-NN) for sub-second retrieval from large datasets.
+-   **Modern Architecture**:
+    -   **Frontend**: HTML5, Tailwind CSS, Vanilla JS (No build step required).
+    -   **Backend**: Python FastAPI with async processing.
+    -   **AI**: OpenAI CLIP (ViT-B/32) running on CPU (optimized with Torch).
+    -   **Database**: OpenSearch with k-NN plugin.
 
 ---
 
-## Installation
+## 🛠️ Prerequisites
 
-1. **Clone the repository:**  
-   ```bash
-   git clone git@bitbucket.org:resilientsage/ai-api-gateway-mvp.git
-   ```
-   
-2. **Go to the project directory:**  
-   ```bash
-   cd ai-api-gateway-mvp
-   ```
-   
-3. **Install the requirements:**  
-   ```bash
-   pip install -r requirements.txt
-   ```
+-   **Docker Desktop** (or Docker Engine + Compose)
+-   **Git**
+-   **Python 3.9+** (Optional, for local scripting)
+-   **AWS CLI** (Optional, for deployment or S3 access)
 
 ---
 
-## Running the Application
+## 💻 Local Setup & Execution Guide
 
-### Using Python
-Run the FastAPI application directly with Python:  
+Follow these steps to run the entire stack locally.
+
+### 1. Clone the Repository
 ```bash
-uvicorn app.api.fastapi_ai_search:app --host 0.0.0.0 --port 8000 --reload
+git clone https://github.com/faisal-titu/ai-api-gateway-mvp.git
+cd ai-api-gateway-mvp
 ```
 
-### Using Docker
-Run the FastAPI application using Docker:  
+### 2. Configure Environment Variables
+Create a `.env.aws` file (used by Docker Compose) with the following content:
 
-1. **Build the Docker image:**  
-   ```bash
-   docker build -t fastapi-ai-search .
-   ```
-
-2. **Run the Docker container:**  
-   ```bash
-   docker run --name fastapi-ai-search --network without_security_opensearch-net -p 8000:8000 fastapi-ai-search
-   ```
-
----
-
-## Endpoints
-
-Below is a detailed reference for every FastAPI endpoint. Each entry includes:
-- **What** the endpoint does
-- **How** to call it (HTTP method, URL, headers)
-- **Example Request** (cURL)
-- **Example Response**
-
----
-
-### Root
-**GET /**
-
-What: Health check and welcome message.
-
-How:
 ```bash
-curl -X GET http://localhost:8000/
+# .env.aws
+OPENSEARCH_HOST=opensearch-node1
+OPENSEARCH_PORT=9200
 ```
-Example Response:
+*Note: `opensearch-node1` is the hostname within the Docker network.*
+
+### 3. Start the Application (Docker Compose)
+Run the following command to build the API container and start OpenSearch:
+
+```bash
+docker-compose -f docker-compose.aws.yml up --build
+```
+-   **Wait 30-60 seconds** for OpenSearch to fully initialize.
+-   The API will be available at imports `http://localhost:8000`.
+
+### 4. Verify System Health
+Open a new terminal and run:
+```bash
+curl http://localhost:8000/health
+```
+**Expected Output:**
 ```json
-{ "message": "Welcome to the AI Search API" }
+{"status": "ok"}
 ```
 
 ---
 
-### Settings
-**POST /set-settings**
+## 🧠 Indexing Data (The "Embeddings")
 
-What: Configure which OpenSearch index and image directory to use for subsequent searches and batch operations.
+To search images, the system needs to know their vector representations.
+**Prerequisite**: You must have a file `datalake/embeddings.jsonl` containing pre-computed CLIP embeddings. If you don't have this, use the scripts in `dev/` to generate it.
 
-How:
-```bash
-curl -X POST http://localhost:8000/set-settings \
-  -H "Content-Type: application/json" \
-  -d '{
-        "index_name": "my_index",
-        "image_dir": "/app/datalake/images"
-      }'
-```
-Example Response:
+**Example data format (JSONL):**
 ```json
-{
-  "message": "Settings updated successfully",
-  "index_name": "my_index",
-  "image_dir": "/app/datalake/images"
-}
+{"image_id": "image123", "embedding": [0.123, -0.456, ...]}
 ```
+
+### Run Bulk Indexing
+Use the API to load these embeddings into OpenSearch:
+
+```bash
+curl -X POST "http://localhost:8000/images/bulk-index-embeddings?index_name=unsplash_images&file_path=/app/datalake/embeddings.jsonl"
+```
+*This endpoint efficiently indexes thousands of vectors in seconds.*
 
 ---
 
-### Metrics
-**GET /metrics**
+## 🌐 Frontend Access
 
-What: Exposes Prometheus metrics for monitoring (latency, request counts, custom histograms).
+Once the containers are running, open your browser:
+👉 **http://localhost:8000/**
 
-How:
-```bash
-curl -X GET http://localhost:8000/metrics
-```
-
-**GET /test-metrics**
-
-What: Simple counter endpoint for testing instrumentation.
-
-How:
-```bash
-curl -X GET http://localhost:8000/test-metrics
-```
-Example Response:
-```
-# HELP test_counter_total Test counter for debugging
-# TYPE test_counter_total counter
-... 1.0
-```
+You will see the **AI Search Landing Page**.
+-   **Authentication**: None required for MVP.
+-   **Images**: Displayed directly from S3 (configured in `frontend/script.js`).
 
 ---
 
-### Text Search
+## 📚 API Reference
+
+Here is the detailed documentation for all available endpoints.
+
+### 1. Health Check
+**GET /health**
+-   **Description**: Checks if the API is running.
+-   **Response**: `{"status": "ok"}`
+
+### 2. Text Search
 **POST /texts/search**
+-   **Description**: Semantically searching images using a text query.
+-   **Body**:
+    ```json
+    {
+      "query": "sunset over mountains",
+      "num_images": 5
+    }
+    ```
+-   **Curl Example**:
+    ```bash
+    curl -X POST "http://localhost:8000/texts/search" \
+         -H "Content-Type: application/json" \
+         -d '{"query": "cyberpunk city", "num_images": 10}'
+    ```
+-   **Response**:
+    ```json
+    {
+      "image_ids": ["id_1", "id_2", "id_3"]
+    }
+    ```
 
-What: Proxy text query to TorchServe CLIP for text-to-image search.
-
-How:
-```bash
-curl -X POST http://localhost:8000/texts/search \
-  -H "Content-Type: application/json" \
-  -d '{
-        "query": "a photo of a cat",
-        "num_images": 5
-      }'
-```
-Example Response:
-```json
-{ "image_ids": ["gQFZxLe3m4g", "pesu5W2yXmQ", "5py1uD3sxNA", ...] }
-```
-
----
-
-### Batch Index Text
-**POST /texts/batch-index**
-
-What: Read a JSON-lines file of text metadata, generate embeddings locally, and bulk-index into OpenSearch.
-
-How:
-```bash
-curl -X POST "http://localhost:8000/texts/batch-index?index_name=my_text_index&text_file_path=/app/datalake/meta.jsonl"
-```
-
----
-
-### Image Search
+### 3. Image Search (Reverse Search)
 **POST /images/search**
+-   **Description**: Finds similar images to an uploaded file.
+-   **Form Data**:
+    -   `file`: The image file to search with.
+    -   `num_images`: (Optional) Number of results (default 5).
+-   **Curl Example**:
+    ```bash
+    curl -X POST "http://localhost:8000/images/search" \
+         -F "file=@/path/to/my_image.jpg" \
+         -F "num_images=5"
+    ```
+-   **Response**: Same as Text Search (`image_ids` list).
 
-What: Proxy image file to TorchServe CLIP for image-to-image search.
+### 4. Bulk Indexing
+**POST /images/bulk-index-embeddings**
+-   **Description**: Indexes a large JSONL file of embeddings into OpenSearch.
+-   **Query Params**:
+    -   `index_name`: Name of the OpenSearch index (e.g., `unsplash_images`).
+    -   `file_path`: Internal path to the file (must be inside Docker container, e.g., `/app/datalake/embeddings.jsonl`).
+-   **Curl Example**: See "Indexing Data" section above.
 
-How:
-```bash
-curl -X POST http://localhost:8000/images/search \
-  -F "file=@/path/to/image.jpg" \
-  -F "num_images=5"
+### 5. Settings (Placeholder)
+**POST /set-settings**
+-   **Description**: Placeholder endpoint for configuration (currently uses ENV vars).
+
+---
+
+## 📂 Project Structure
+
 ```
-Example Response:
-```json
-{
-  "query_image_id": "image.jpg",
-  "similar_image_ids": ["GH_b1WXHKbU", "hfs2ierY1mY", ...]
-}
+ai-api-gateway-mvp/
+├── app/
+│   ├── api/
+│   │   └── fastapi_aws.py       # Main Application Logic
+├── frontend/                    # Source code for the UI
+│   ├── index.html               # Main Landing Page
+│   ├── script.js                # Frontend Logic (API calls)
+│   └── style.css                # Custom Styles (Tailwind overrides)
+├── datalake/                    # Volume-mounted data folder (embeddings.jsonl)
+├── dev/                         # Development scripts & legacy features
+├── docker-compose.aws.yml       # Docker services configuration
+├── Dockerfile.aws               # Build instructions for API container
+└── requirements.txt             # Python dependencies
 ```
 
 ---
 
-### Batch Index Images
-**POST /images/batch-index**
+## ❓ Troubleshooting
 
-What: Walk a folder of images inside the container, generate CLIP embeddings locally, and bulk-index into OpenSearch.
+### 1. OpenSearch Connection Error
+-   **Symptom**: `ConnectionRefusedError` or timeout in logs.
+-   **Fix**: OpenSearch takes time to start. Wait 60 seconds after `docker-compose up`. Ensure `OPENSEARCH_HOST` in `.env.aws` matches the service name in `docker-compose.aws.yml`.
 
-How:
-```bash
-curl -X POST "http://localhost:8000/images/batch-index?index_name=my_image_index&image_dir=/app/datalake/small_1000"
-```
+### 2. Frontend not updating
+-   **Symptom**: Old styles visible.
+-   **Fix**: Perform a **Hard Refresh** (Ctrl+Shift+R) in your browser. Since we use a Docker volume mount, changes to `frontend/` files are instant.
 
----
-
-### Face Detection (Single)
-**POST /faces/detection/single**
-
-What: Detect and crop faces in one uploaded image.
-
-How:
-```bash
-curl -X POST http://localhost:8000/faces/detection/single \
-  -F "file=@/path/to/portrait.jpg"
-```
-Example Response (one face):
-```json
-{
-  "status": "Faces detected",
-  "image_name": "portrait.jpg",
-  "total_faces_detected": 1,
-  "processed_images": [
-    {
-      "bounding_box": [x1, y1, x2, y2],
-      "confidence": 0.99,
-      "cropped_width": 150,
-      "cropped_height": 150,
-      "cropped_resolution": "150x150",
-      "cropped_image_path": "datalake/cropped_faces/1234_face_1.jpg"
-    }
-  ]
-}
-```
+### 3. "CircuitBreakerException" in OpenSearch
+-   **Symptom**: Bulk indexing fails with memory error.
+-   **Fix**: We have configured `OPENSEARCH_JAVA_OPTS="-Xms512m -Xmx512m"` in `docker-compose.aws.yml` and reduced indexing chunk size to 50. Ensure your Docker machine has at least 2GB RAM allocated.
 
 ---
 
-### Face Detection (Batch)
-**POST /faces/detection/batch**
-
-What: Detect and crop faces in every image under a directory.
-
-How:
-```bash
-curl -X POST "http://localhost:8000/faces/detection/batch?image_dir=/app/facenet_data/original_images&face_crop_dir=/app/facenet_data/crops"
-```
-
----
-
-### Face Embedding (Single)
-**POST /faces/embedding/single**
-
-What: Detect, embed, and optionally index faces in one image.
-
-How:
-```bash
-curl -X POST "http://localhost:8000/faces/embedding/single?index_name=my_face_index" \
-  -F "file=@/path/to/portrait.jpg"
-```
-
----
-
-### Face Embedding (Batch)
-**POST /faces/embedding/batch**
-
-What: Detect, embed, and bulk-index faces from all cropped images in a folder.
-
-How:
-```bash
-curl -X POST "http://localhost:8000/faces/embedding/batch?image_dir=/app/facenet_data/original_images&face_crop_dir=/app/facenet_data/crops&index_name=my_face_index&batch_size=32"
-```
-
----
-
-### Face Search
-**POST /faces/search**
-
-What: Given an image, detect and embed faces locally, then perform KNN lookup in OpenSearch index.
-
-How:
-```bash
-curl -X POST "http://localhost:8000/faces/search?index_name=my_face_index&k=5" \
-  -F "file=@/path/to/portrait.jpg"
-```
-Example Response:
-```json
-{
-  "status": "Search completed",
-  "image_name": "portrait.jpg",
-  "total_faces_detected": 1,
-  "search_results": [
-    {
-      "face_id": "abcd1234",
-      "box": [x1,y1,x2,y2],
-      "similar_faces": [ {"image_id":"img1","face_id":"f1","score":0.95}, ... ]
-    }
-  ]
-}
-```
-
----
-
-### Combined Search
-**POST /combined/search**
-
-What: In parallel, perform image-based search and face-based search for one upload.
-
-How:
-```bash
-curl -X POST "http://localhost:8000/combined/search?image_index=my_image_index&face_index=my_face_index&num_images=5" \
-  -F "file=@/path/to/portrait.jpg"
-```
-Example Response:
-```json
-{
-  "status": "success",
-  "details": {
-    "image_search": { "query_image_id":"portrait.jpg","similar_image_ids":["id1",... ]},
-    "face_search": { ... }
-  }
-}
-```
-
----
-
-## License
-This project is licensed under the MIT License - see the LICENSE file for details.
-
----
-
-## Instructions to Update
-Replace placeholders in the clone command with your Bitbucket username and repository details.
-
---- 
-
-This format uses markdown properly, ensuring a clean and professional layout on Bitbucket.
+## 📜 License
+MIT License.

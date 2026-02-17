@@ -1,6 +1,8 @@
-# AI Image Search Engine (API Gateway MVP)
+# Personalized AI Image Search Engine 🔍
 
-A powerful, multimodal search engine that combines **OpenAI CLIP** (semantic understanding) and **AWS OpenSearch** (vector database) to enable natural language search for images and reverse image search.
+A powerful, multimodal search engine designed to explore **YOUR personal image collection**. By combining **OpenAI CLIP** (semantic understanding) and **AWS OpenSearch**, it enables you to search your own photos using natural language ("a birthday party", "my cat sleeping") or finding similar visual styles.
+
+🔴 **Live Demo:** [http://13.63.120.96:8000/](http://13.63.120.96:8000/)
 
 This project features a modern **FastAPI** backend and a **Tailwind CSS** frontend with Glassmorphism UI.
 

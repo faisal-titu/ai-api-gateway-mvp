@@ -60,6 +60,15 @@
             border: 1px solid rgba(255, 255, 255, 0.05);
             backdrop-filter: blur(10px);
         }
+
+        .step-card {
+            transition: all 0.3s ease;
+        }
+
+        .step-card:hover {
+            transform: translateY(-5px);
+            background: rgba(255, 255, 255, 0.08);
+        }
     </style>
 </head>
 
@@ -82,16 +91,16 @@
                 <a href="#home" class="hover:text-white transition-colors">Home</a>
                 <a href="#features" class="hover:text-white transition-colors">Features</a>
                 <a href="#how-it-works" class="hover:text-white transition-colors">How it works</a>
-                <a href="#gallery" class="hover:text-white transition-colors">Gallery</a>
+                <a href="#contact" class="hover:text-white transition-colors">Contact</a>
             </div>
 
             <!-- CTA -->
             <a href="#search-app"
                 class="hidden md:block bg-white/10 hover:bg-white/20 px-5 py-2 rounded-full text-sm font-semibold transition-all border border-white/10">
-                Get Started
+                Live Demo
             </a>
 
-            <!-- Mobile Menu Button (Hamburger) -->
+            <!-- Mobile Menu Button -->
             <button class="md:hidden text-2xl text-gray-300">
                 <i class="fas fa-bars"></i>
             </button>
@@ -130,9 +139,9 @@
                     class="px-8 py-4 bg-primary hover:bg-secondary text-white rounded-2xl font-semibold shadow-lg shadow-primary/30 transition-all hover:-translate-y-1 transform w-full sm:w-auto">
                     Try functionality
                 </a>
-                <a href="#features"
+                <a href="#how-it-works"
                     class="px-8 py-4 bg-white/5 hover:bg-white/10 text-white rounded-2xl font-semibold border border-white/10 transition-all w-full sm:w-auto">
-                    Learn more
+                    How it works
                 </a>
             </div>
 
@@ -156,16 +165,13 @@
     <section id="search-app" class="py-24 relative">
         <div class="container mx-auto px-4 max-w-6xl">
             <div class="glass-card rounded-3xl p-8 md:p-12 shadow-2xl relative overflow-hidden">
-                <!-- Search Interface Title -->
                 <div class="text-center mb-10">
                     <h2 class="text-3xl font-bold">Live Demo</h2>
                     <p class="text-gray-400 mt-2">Try it yourself. Describe any image or upload one.</p>
                 </div>
 
-                <!-- Search Inputs & Controls -->
                 <div class="flex flex-col gap-6 max-w-4xl mx-auto">
                     <div class="flex flex-col md:flex-row gap-4">
-                        <!-- Main Search Bar -->
                         <div
                             class="flex-1 bg-white/5 border border-white/10 rounded-2xl px-6 py-4 flex items-center focus-within:bg-white/10 focus-within:border-accent/50 transition-all shadow-lg">
                             <i class="fas fa-search text-gray-400 text-xl mr-4"></i>
@@ -173,23 +179,18 @@
                                 class="bg-transparent border-none text-white text-lg w-full focus:outline-none placeholder-gray-500"
                                 placeholder="e.g., 'cyberpunk city at night with neon lights'...">
                         </div>
-
-                        <!-- Count Input -->
                         <div
                             class="bg-white/5 border border-white/10 rounded-2xl px-4 py-2 flex items-center justify-center gap-3 md:w-auto">
                             <span class="text-gray-400 text-sm">Limit:</span>
                             <input type="number" id="kInput" min="1" max="50" value="20"
                                 class="bg-transparent w-12 text-center text-white font-bold border-b border-white/20 focus:border-accent outline-none">
                         </div>
-
-                        <!-- Action Button -->
                         <button id="searchBtn"
                             class="bg-gradient-to-r from-primary to-secondary hover:from-primary hover:to-primary text-white font-bold py-4 px-8 rounded-2xl shadow-lg shadow-primary/30 transition-transform active:scale-95">
                             Search
                         </button>
                     </div>
 
-                    <!-- Upload & Preview Area -->
                     <div class="flex flex-col items-center gap-4">
                         <div class="flex items-center justify-center w-full">
                             <label for="imageUpload"
@@ -202,8 +203,6 @@
                             </label>
                             <input type="file" id="imageUpload" accept="image/*" class="hidden">
                         </div>
-
-                        <!-- Dynamic Preview Container -->
                         <div id="image-preview-container" class="hidden w-full max-w-xs animate-fade-in relative group">
                             <div
                                 class="absolute -inset-1 bg-gradient-to-r from-accent to-primary rounded-2xl blur opacity-25 group-hover:opacity-50 transition-opacity">
@@ -223,27 +222,19 @@
                     </div>
                 </div>
 
-                <!-- Results Section -->
                 <div class="mt-12 min-h-[300px]">
-                    <!-- Spinner -->
                     <div id="loading" class="hidden flex-col items-center justify-center py-12">
                         <div class="w-12 h-12 border-4 border-white/10 border-t-accent rounded-full animate-spin mb-4">
                         </div>
                         <p class="text-gray-400 animate-pulse font-mono text-sm">Processing Embeddings...</p>
                     </div>
-
-                    <!-- Stats Bar -->
                     <div id="results-bar" class="hidden flex justify-between items-center mb-6 px-2">
                         <span class="text-gray-400 text-sm">Found <span id="count" class="text-white font-bold">0</span>
                             matches</span>
                         <div class="text-xs text-gray-500">Sorted by relevance (cosine similarity)</div>
                     </div>
-
-                    <!-- Gallery Grid -->
                     <div id="gallery"
-                        class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
-                        <!-- JS injects images here -->
-                    </div>
+                        class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6"></div>
                 </div>
             </div>
         </div>
@@ -256,81 +247,161 @@
                 <span class="text-accent text-sm font-bold uppercase tracking-wider mb-2 block">Why It's Better</span>
                 <h2 class="text-3xl md:text-5xl font-bold">Engineered for Accuracy</h2>
             </div>
-
             <div class="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-                <!-- Feature 1 -->
                 <div class="bg-white/5 border border-white/10 p-8 rounded-3xl hover:bg-white/10 transition-colors">
                     <div
                         class="w-14 h-14 bg-primary/20 rounded-2xl flex items-center justify-center text-primary text-2xl mb-6">
                         <i class="fas fa-brain"></i>
                     </div>
                     <h3 class="text-xl font-bold mb-3">Semantic Understanding</h3>
-                    <p class="text-gray-400 leading-relaxed">
-                        Unlike traditional keyword search, CLIP understands the *intent* of your query. "A sad dog in
-                        the rain" works even if the image isn't tagged "sad".
-                    </p>
+                    <p class="text-gray-400 leading-relaxed">Unlike traditional keyword search, CLIP understands the
+                        *intent* of your query using deep learning.</p>
                 </div>
-
-                <!-- Feature 2 -->
                 <div class="bg-white/5 border border-white/10 p-8 rounded-3xl hover:bg-white/10 transition-colors">
                     <div
                         class="w-14 h-14 bg-accent/20 rounded-2xl flex items-center justify-center text-accent text-2xl mb-6">
                         <i class="fas fa-bolt"></i>
                     </div>
                     <h3 class="text-xl font-bold mb-3">Blazing Fast (k-NN)</h3>
-                    <p class="text-gray-400 leading-relaxed">
-                        Powered by AWS OpenSearch k-NN plugin, we search millions of vectors in milliseconds using
-                        optimized HNSW graphs.
-                    </p>
+                    <p class="text-gray-400 leading-relaxed">Powered by AWS OpenSearch k-NN plugin, we search millions
+                        of vectors in milliseconds.</p>
                 </div>
-
-                <!-- Feature 3 -->
                 <div class="bg-white/5 border border-white/10 p-8 rounded-3xl hover:bg-white/10 transition-colors">
                     <div
                         class="w-14 h-14 bg-purple-500/20 rounded-2xl flex items-center justify-center text-purple-400 text-2xl mb-6">
                         <i class="fas fa-image"></i>
                     </div>
                     <h3 class="text-xl font-bold mb-3">Reverse Image Search</h3>
-                    <p class="text-gray-400 leading-relaxed">
-                        Don't have words? Upload an image to find visually similar results instantly. Perfect for style
-                        matching.
+                    <p class="text-gray-400 leading-relaxed">Use an image as the query to find visually similar results
+                        instantly.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- How It Works Section (NEW) -->
+    <section id="how-it-works" class="py-24 relative overflow-hidden">
+        <div class="absolute inset-0 bg-gradient-to-b from-dark to-surface opacity-50 z-0"></div>
+        <div class="container mx-auto px-6 relative z-10 max-w-6xl">
+            <div class="text-center mb-20">
+                <span class="text-primary text-sm font-bold uppercase tracking-wider mb-2 block">The Architecture</span>
+                <h2 class="text-3xl md:text-5xl font-bold">From Query to Result</h2>
+            </div>
+
+            <!-- Steps Grid -->
+            <div class="grid md:grid-cols-3 gap-6 relative">
+                <!-- Connecting Line (Desktop) -->
+                <div class="hidden md:block absolute top-12 left-0 w-full h-1 bg-white/5 z-0"></div>
+
+                <!-- Step 1 -->
+                <div class="step-card bg-white/5 border border-white/10 p-8 rounded-3xl relative z-10 text-center">
+                    <div
+                        class="w-24 h-24 mx-auto bg-dark border-4 border-primary/30 rounded-full flex items-center justify-center text-4xl mb-6 shadow-xl shadow-primary/20">
+                        <i class="fas fa-keyboard text-primary"></i>
+                    </div>
+                    <div
+                        class="absolute top-0 right-0 bg-white/10 text-white font-bold px-3 py-1 rounded-bl-xl rounded-tr-3xl text-sm">
+                        01</div>
+                    <h3 class="text-xl font-bold mb-3">Your Input</h3>
+                    <p class="text-gray-400 text-sm leading-relaxed">
+                        You type "a cat sitting on a laptop" or upload an image. The frontend sends this to our FastAPI
+                        + CLIP backend on AWS.
+                    </p>
+                </div>
+
+                <!-- Step 2 -->
+                <div class="step-card bg-white/5 border border-white/10 p-8 rounded-3xl relative z-10 text-center">
+                    <div
+                        class="w-24 h-24 mx-auto bg-dark border-4 border-accent/30 rounded-full flex items-center justify-center text-4xl mb-6 shadow-xl shadow-accent/20">
+                        <i class="fas fa-network-wired text-accent"></i>
+                    </div>
+                    <div
+                        class="absolute top-0 right-0 bg-white/10 text-white font-bold px-3 py-1 rounded-bl-xl rounded-tr-3xl text-sm">
+                        02</div>
+                    <h3 class="text-xl font-bold mb-3">Vector Embedding</h3>
+                    <p class="text-gray-400 text-sm leading-relaxed">
+                        The CLIP model converts your input into a 512-dimensional vector offering semantic understanding
+                        of the content.
+                    </p>
+                </div>
+
+                <!-- Step 3 -->
+                <div class="step-card bg-white/5 border border-white/10 p-8 rounded-3xl relative z-10 text-center">
+                    <div
+                        class="w-24 h-24 mx-auto bg-dark border-4 border-purple-500/30 rounded-full flex items-center justify-center text-4xl mb-6 shadow-xl shadow-purple-500/20">
+                        <i class="fas fa-search-plus text-purple-400"></i>
+                    </div>
+                    <div
+                        class="absolute top-0 right-0 bg-white/10 text-white font-bold px-3 py-1 rounded-bl-xl rounded-tr-3xl text-sm">
+                        03</div>
+                    <h3 class="text-xl font-bold mb-3">k-NN Search</h3>
+                    <p class="text-gray-400 text-sm leading-relaxed">
+                        OpenSearch matches your vector against 25,000+ indexed images using HNSW and returns the top K
+                        results instantly.
                     </p>
                 </div>
             </div>
         </div>
     </section>
 
+    <!-- Contact Section (NEW) -->
+    <section id="contact" class="py-24 bg-gradient-to-br from-surface to-dark border-t border-white/5">
+        <div class="container mx-auto px-6 text-center max-w-4xl">
+            <h2 class="text-3xl md:text-5xl font-bold mb-6">Let's Build Something Amazing</h2>
+            <p class="text-xl text-gray-400 mb-10">
+                Interested in AI, Search Architectures, or deploying scalable ML systems? Let's connect!
+            </p>
+            <div class="flex flex-wrap justify-center gap-4">
+                <a href="https://www.linkedin.com/in/md-faisal-ahammed/" target="_blank"
+                    class="flex items-center gap-3 px-8 py-4 bg-[#0077b5] hover:bg-[#006396] text-white rounded-2xl font-bold transition-transform hover:-translate-y-1">
+                    <i class="fab fa-linkedin text-xl"></i>
+                    Connect on LinkedIn
+                </a>
+                <a href="https://github.com/faisal-titu/ai-api-gateway-mvp" target="_blank"
+                    class="flex items-center gap-3 px-8 py-4 bg-[#333] hover:bg-[#24292e] text-white rounded-2xl font-bold transition-transform hover:-translate-y-1">
+                    <i class="fab fa-github text-xl"></i>
+                    View on GitHub
+                </a>
+            </div>
+        </div>
+    </section>
+
     <!-- Footer -->
-    <footer class="bg-black/40 py-12 border-t border-white/5">
+    <footer class="bg-black py-12 border-t border-white/10">
         <div class="container mx-auto px-6">
-            <div class="flex flex-col md:flex-row justify-between items-center gap-6">
+            <div class="flex flex-col md:flex-row justify-between items-center gap-8">
                 <div class="text-center md:text-left">
-                    <h3 class="text-xl font-bold text-white mb-2">AI Image Search</h3>
+                    <h3
+                        class="text-xl font-bold text-white mb-2 flex items-center gap-2 justify-center md:justify-start">
+                        <i class="fas fa-brain text-primary"></i> AI Search
+                    </h3>
                     <p class="text-gray-500 text-sm">Next-gen visual discovery platform.</p>
                 </div>
 
                 <div class="flex gap-6">
-                    <a href="#"
-                        class="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center hover:bg-white/10 text-gray-400 hover:text-white transition-colors">
+                    <a href="https://github.com/faisal-titu/ai-api-gateway-mvp" target="_blank"
+                        class="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+                        title="GitHub Repo">
                         <i class="fab fa-github"></i>
+                    </a>
+                    <a href="https://www.linkedin.com/in/md-faisal-ahammed/" target="_blank"
+                        class="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+                        title="LinkedIn Profile">
+                        <i class="fab fa-linkedin"></i>
                     </a>
                     <a href="#"
                         class="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center hover:bg-white/10 text-gray-400 hover:text-white transition-colors">
                         <i class="fab fa-twitter"></i>
                     </a>
-                    <a href="#"
-                        class="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center hover:bg-white/10 text-gray-400 hover:text-white transition-colors">
-                        <i class="fab fa-linkedin"></i>
-                    </a>
                 </div>
             </div>
             <div class="border-t border-white/5 mt-8 pt-8 text-center text-gray-600 text-xs">
-                &copy; 2026 AI Search Project. Build with FastAPI, CLIP, and OpenSearch.
+                &copy; 2026 Md Faisal Ahammed. Built with FastAPI, CLIP, and OpenSearch on AWS.
             </div>
         </div>
     </footer>
 
-    <!-- Lightbox Modal (Hidden) -->
+    <!-- Lightbox Modal -->
     <div id="lightbox"
         class="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-md opacity-0 pointer-events-none transition-opacity duration-300">
         <button

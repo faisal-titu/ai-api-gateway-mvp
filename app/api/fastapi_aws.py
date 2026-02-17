@@ -70,18 +70,10 @@ def _get_clip_functions():
         from dev.image_embedding.embedding_generation import get_image_embedding, get_text_embedding
         from dev.image_embedding.search import search_knn
         from dev.image_embedding.create_image_index import create_index
-        from dev.image_embedding.image_batch_embedding import (
-            create_dataloader,
-            generate_embeddings,
-            bulk_index_embeddings,
-        )
         _modules["get_image_embedding"] = get_image_embedding
         _modules["get_text_embedding"] = get_text_embedding
         _modules["search_knn"] = search_knn
         _modules["create_index"] = create_index
-        _modules["create_dataloader"] = create_dataloader
-        _modules["generate_embeddings"] = generate_embeddings
-        _modules["bulk_index_embeddings"] = bulk_index_embeddings
         _modules["clip_loaded"] = True
         logger.info("CLIP model loaded successfully!")
     return _modules
@@ -182,19 +174,83 @@ async def search_image(file: UploadFile = File(...), num_images: int = Form(5)):
 
 @image_router.post("/batch-index")
 async def batch_index_images(index_name: str = Query(...), image_dir: str = Query(...)):
-    """Batch index images into OpenSearch."""
+    """Batch index images into OpenSearch — memory-efficient chunked version."""
     logger.info(f"Batch index request: index={index_name}, dir={image_dir}")
-    m = _get_clip_functions()
     client = _get_opensearch_client()
-    try:
-        m["create_index"](client, index_name)
-        dataloader = m["create_dataloader"](image_dir, batch_size=16, num_workers=2)
-        embeddings = m["generate_embeddings"](dataloader)
-        response = m["bulk_index_embeddings"](client, index_name, embeddings)
-        return {"message": "Batch indexing completed successfully", "details": response}
-    except Exception as e:
-        logger.error(f"Error during batch indexing: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"An error occurred: {e}")
+
+    # Lazy import only what we need (avoid image_batch_embedding.py which loads CLIP again)
+    import torch
+    import gc
+    from PIL import Image
+    from opensearchpy.helpers import bulk
+
+    # Load CLIP via our lazy loader (reuses already-loaded model)
+    m = _get_clip_functions()
+
+    # Create the index
+    m["create_index"](client, index_name)
+
+    # Get the CLIP model and preprocess from embedding_generation
+    from dev.image_embedding.embedding_generation import model, preprocess, device
+
+    # List all images
+    image_files = [f for f in os.listdir(image_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
+    total = len(image_files)
+    logger.info(f"Found {total} images to index")
+
+    CHUNK_SIZE = 50  # Process 50 images at a time
+    indexed = 0
+    errors = 0
+
+    for chunk_start in range(0, total, CHUNK_SIZE):
+        chunk_files = image_files[chunk_start:chunk_start + CHUNK_SIZE]
+        actions = []
+
+        for fname in chunk_files:
+            try:
+                img_path = os.path.join(image_dir, fname)
+                image = Image.open(img_path).convert("RGB")
+                image_tensor = preprocess(image).unsqueeze(0).to(device)
+
+                with torch.no_grad():
+                    embedding = model.encode_image(image_tensor)
+                    embedding /= embedding.norm(dim=-1, keepdim=True)
+
+                image_id = os.path.splitext(fname)[0]
+                actions.append({
+                    "_index": index_name,
+                    "_id": chunk_start + len(actions),
+                    "_source": {
+                        "my_vector": embedding.squeeze().cpu().tolist(),
+                        "image_id": image_id,
+                    }
+                })
+                # Free tensor memory
+                del image_tensor, embedding, image
+            except Exception as e:
+                errors += 1
+                logger.warning(f"Skipping {fname}: {e}")
+
+        # Index this chunk to OpenSearch
+        if actions:
+            try:
+                bulk(client, actions)
+                indexed += len(actions)
+                logger.info(f"Indexed {indexed}/{total} images ({errors} errors)")
+            except Exception as e:
+                logger.error(f"Bulk index failed for chunk at {chunk_start}: {e}")
+
+        # Free memory
+        del actions
+        gc.collect()
+
+    logger.info(f"Batch indexing complete: {indexed}/{total} indexed, {errors} errors")
+    return {
+        "message": "Batch indexing completed",
+        "total_images": total,
+        "indexed": indexed,
+        "errors": errors,
+    }
 
 
 # =====================

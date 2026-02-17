@@ -354,6 +354,36 @@ async def batch_index_text(index_name: str = Query(...), text_file_path: str = Q
 app.include_router(image_router)
 app.include_router(text_router)
 
+
+# =====================
+# Static Files & Frontend
+# =====================
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+
+# Serve images (for the frontend gallery)
+if os.path.exists("/app/datalake/unsplash"):
+    app.mount("/images", StaticFiles(directory="/app/datalake/unsplash"), name="images")
+
+# Serve frontend files (css, js)
+if os.path.exists("/app/frontend"):
+    app.mount("/static", StaticFiles(directory="/app/frontend"), name="static")
+
+
+@app.get("/")
+async def root():
+    """Serve the frontend HTML."""
+    if os.path.exists("/app/frontend/index.html"):
+        return FileResponse("/app/frontend/index.html")
+    return {"message": "Welcome to the AI Search API (Frontend not found)"}
+
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint."""
+    return {"status": "ok"}
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

@@ -226,32 +226,74 @@ ls ~/ai-search-api/datalake/unsplash/ | wc -l
 
 ## Step 8: Index and Search Your Images
 
-1. **Set the index settings**:
-```bash
-curl -X POST http://<YOUR_ELASTIC_IP>:8000/set-settings \
-  -H "Content-Type: application/json" \
-  -d '{"index_name": "unsplash_images", "image_dir": "/app/datalake/unsplash"}'
-```
+You have two options for indexing. **Option A is highly recommended** for free tier servers.
 
-2. **Batch index all images** (this takes a while — 25K images on a t2.micro):
-```bash
-curl -X POST "http://<YOUR_ELASTIC_IP>:8000/images/batch-index?index_name=unsplash_images&image_dir=/app/datalake/unsplash"
-```
-> 💡 This runs CLIP embeddings on all images. On `t2.micro` it may take several hours. You can start with a subset for testing.
+### Option A: Fast Track (Recommended) 🚀
+**Generate embeddings locally, then upload.** This is 10-50x faster because your computer is much more powerful than the `t2.micro` server.
 
-3. **Search by text**:
-```bash
-curl -X POST http://<YOUR_ELASTIC_IP>:8000/texts/search \
-  -H "Content-Type: application/json" \
-  -d '{"query": "a photo of a sunset", "num_images": 5}'
-```
+1. **On your LOCAL machine**:
+   ```bash
+   # Install dependencies if needed
+   pip install git+https://github.com/openai/CLIP.git torch tqdm
+   
+   # Generate embeddings (takes ~10 mins for 25K images)
+   python generate_embeddings_local.py --image-dir ./datalake/unsplash --output embeddings.jsonl
+   ```
 
-4. **Search by image** (upload an image as query):
-```bash
-curl -X POST http://<YOUR_ELASTIC_IP>:8000/images/search \
-  -F "file=@/path/to/your/query-image.jpg" \
-  -F "num_images=5"
-```
+2. **Upload the embeddings file**:
+   ```bash
+   scp -i ~/Downloads/ai-search-key.pem embeddings.jsonl ec2-user@<YOUR_ELASTIC_IP>:~/ai-search-api/datalake/
+   ```
+
+3. **Index on the server** (blazing fast — no CLIP needed):
+   ```bash
+   # SSH into server
+   ssh -i ~/Downloads/ai-search-key.pem ec2-user@<YOUR_ELASTIC_IP>
+   
+   # Run the bulk index
+   curl -X POST "http://localhost:8000/images/bulk-index-embeddings?index_name=unsplash_images&file_path=/app/datalake/embeddings.jsonl"
+   ```
+   > this should finish in ~1-2 minutes!
+
+### Option B: Slow Track (EC2 CPU) 🐢
+**Generate embeddings on the server.** This runs CLIP on the single vCPU `t2.micro` instance.
+
+1. **Set the settings**:
+   ```bash
+   curl -X POST http://localhost:8000/set-settings \
+     -H "Content-Type: application/json" \
+     -d '{"index_name": "unsplash_images", "image_dir": "/app/datalake/unsplash"}'
+   ```
+
+2. **Start batch indexing** (run in background, takes ~4-6 hours):
+   ```bash
+   nohup curl --max-time 86400 -X POST "http://localhost:8000/images/batch-index?index_name=unsplash_images&image_dir=/app/datalake/unsplash" > /tmp/index.log 2>&1 &
+   ```
+
+3. **Monitor progress**:
+   ```bash
+   docker logs ai-search-api 2>&1 | grep "Indexed"
+   ```
+
+---
+
+## Step 9: Search!
+
+Once indexing is complete (check `curl http://localhost:9200/_cat/indices?v`), try searching:
+
+1. **Search by text**:
+   ```bash
+   curl -X POST http://localhost:8000/texts/search \
+     -H "Content-Type: application/json" \
+     -d '{"query": "a photo of a sunset", "num_images": 5}'
+   ```
+
+2. **Search by image** (upload an image as query):
+   ```bash
+   curl -X POST http://localhost:8000/images/search \
+     -F "file=@/app/datalake/unsplash/some-image.jpg" \
+     -F "num_images=5"
+   ```
 
 ---
 
@@ -313,6 +355,55 @@ sysctl vm.max_map_count
 # Should show 262144. If not:
 sudo sysctl -w vm.max_map_count=262144
 ```
+
+---
+
+---
+
+## Step 10: Configure S3 (CRITICAL for Frontend!)
+
+For your frontend to display images, your S3 bucket `ai-image-searching` needs to be publicly accessible.
+
+### 1. Unblock Public Access
+1. Go to **Amazon S3** → Click your bucket `ai-image-searching`.
+2. Click **Permissions** tab.
+3. Under **Block public access (bucket settings)**, click **Edit**.
+4. **Uncheck** "Block all public access".
+5. Click **Save changes** → Type "confirm".
+
+### 2. Add Bucket Policy (Makes images readable)
+1. Still in **Permissions**, scroll to **Bucket policy**.
+2. Click **Edit** and paste this (replace `ai-image-searching` if you use a different bucket):
+```json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "PublicReadGetObject",
+            "Effect": "Allow",
+            "Principal": "*",
+            "Action": "s3:GetObject",
+            "Resource": "arn:aws:s3:::ai-image-searching/unsplash/*"
+        }
+    ]
+}
+```
+3. Click **Save changes**.
+
+### 3. Configure CORS (Allows frontend to fetch)
+1. Scroll down to **Cross-origin resource sharing (CORS)**.
+2. Click **Edit** and paste this:
+```json
+[
+    {
+        "AllowedHeaders": ["*"],
+        "AllowedMethods": ["GET"],
+        "AllowedOrigins": ["*"],
+        "ExposeHeaders": []
+    }
+]
+```
+3. Click **Save changes**.
 
 ---
 

@@ -12,9 +12,11 @@ def get_client():
         use_ssl=False,
         verify_certs=False,
         ssl_assert_hostname=False,
-        ssl_show_warn=False
+        ssl_show_warn=False,
+        timeout=120,
+        max_retries=3,
+        retry_on_timeout=True,
     )
     return client
 
 client = get_client()
-

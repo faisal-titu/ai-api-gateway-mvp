@@ -2,6 +2,11 @@
 
 
 def create_index(client, index_name):
+    # Skip if index already exists
+    if client.indices.exists(index=index_name):
+        print(f"Index '{index_name}' already exists, skipping creation.")
+        return {"acknowledged": True, "already_exists": True}
+
     # Create the index
     response=client.indices.create(
         index=index_name,

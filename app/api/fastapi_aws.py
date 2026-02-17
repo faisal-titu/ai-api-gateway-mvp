@@ -253,6 +253,67 @@ async def batch_index_images(index_name: str = Query(...), image_dir: str = Quer
     }
 
 
+@image_router.post("/bulk-index-embeddings")
+async def bulk_index_from_file(index_name: str = Query(...), file_path: str = Query(...)):
+    """Bulk index pre-computed embeddings from a JSONL file (no CLIP needed!)."""
+    logger.info(f"Bulk index from file: index={index_name}, file={file_path}")
+    client = _get_opensearch_client()
+
+    import json
+    import gc
+    from opensearchpy.helpers import bulk
+
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail=f"File not found: {file_path}")
+
+    # Lazy-load create_index only (no CLIP!)
+    from dev.image_embedding.create_image_index import create_index
+    create_index(client, index_name)
+
+    CHUNK_SIZE = 500
+    indexed = 0
+    errors = 0
+    actions = []
+    doc_id = 0
+
+    with open(file_path, "r") as f:
+        for line in f:
+            try:
+                data = json.loads(line.strip())
+                actions.append({
+                    "_index": index_name,
+                    "_id": doc_id,
+                    "_source": {
+                        "my_vector": data["embedding"],
+                        "image_id": data["image_id"],
+                    }
+                })
+                doc_id += 1
+
+                if len(actions) >= CHUNK_SIZE:
+                    bulk(client, actions)
+                    indexed += len(actions)
+                    logger.info(f"Indexed {indexed} embeddings from file ({errors} errors)")
+                    actions = []
+                    gc.collect()
+
+            except Exception as e:
+                errors += 1
+                logger.warning(f"Error on line {doc_id}: {e}")
+
+    # Index remaining
+    if actions:
+        bulk(client, actions)
+        indexed += len(actions)
+
+    logger.info(f"File indexing complete: {indexed} indexed, {errors} errors")
+    return {
+        "message": "Bulk index from file completed",
+        "indexed": indexed,
+        "errors": errors,
+    }
+
+
 # =====================
 # Text Operations (lazy-loads on first call)
 # =====================

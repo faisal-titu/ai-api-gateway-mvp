@@ -5,48 +5,195 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Image Search Gallery</title>
-    <link rel="stylesheet" href="/static/style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <!-- Tailwind CSS (CDN for MVP) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#6c5ce7',
+                        secondary: '#a29bfe',
+                        accent: '#00cec9',
+                        glass: 'rgba(255, 255, 255, 0.08)',
+                        'glass-border': 'rgba(255, 255, 255, 0.1)',
+                    },
+                    fontFamily: {
+                        sans: ['Outfit', 'sans-serif'],
+                    },
+                    animation: {
+                        'gradient-x': 'gradient-x 5s ease infinite',
+                        'spin-slow': 'spin 3s linear infinite',
+                        'fade-in': 'fadeIn 0.5s ease-out forwards',
+                    },
+                    keyframes: {
+                        'gradient-x': {
+                            '0%, 100%': {
+                                'background-size': '200% 200%',
+                                'background-position': 'left center'
+                            },
+                            '50%': {
+                                'background-size': '200% 200%',
+                                'background-position': 'right center'
+                            },
+                        },
+                        fadeIn: {
+                            '0%': { opacity: '0', transform: 'translateY(10px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom scrollbar and minor tweaks */
+        body {
+            background: #0f0c29;
+            background: radial-gradient(circle at center, #24243e, #0f0c29);
+        }
+
+        .gallery-item {
+            aspect-ratio: 1;
+        }
+
+        /* Hide scrollbar for gallery if needed, but allow scrolling */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
 </head>
 
-<body>
-    <div class="glass-container">
-        <header>
-            <h1>AI Image Search</h1>
-            <p>Search 25,000+ images using natural language</p>
+<body class="min-h-screen text-white flex flex-col items-center justify-center p-4">
+
+    <!-- Glass Container -->
+    <div
+        class="relative w-full max-w-6xl min-h-[85vh] bg-glass backdrop-blur-xl border border-glass-border rounded-3xl shadow-2xl flex flex-col items-center p-8 overflow-hidden">
+
+        <!-- Header -->
+        <header class="text-center mb-8 w-full z-10">
+            <h1
+                class="text-5xl md:text-6xl font-bold mb-2 animate-gradient-x bg-gradient-to-r from-red-400 via-yellow-400 to-purple-400 bg-clip-text text-transparent drop-shadow-lg">
+                AI Image Search
+            </h1>
+            <p class="text-gray-400 text-lg font-light">
+                Explore 25,000+ images with natural language
+            </p>
         </header>
 
-        <div class="search-section">
-            <div class="search-bar">
-                <i class="fas fa-search search-icon"></i>
-                <input type="text" id="searchInput"
-                    placeholder="Describe an image (e.g., 'a peaceful sunset in the mountains')...">
-                <button id="searchBtn">Search</button>
+        <!-- Search Section -->
+        <div class="w-full max-w-3xl flex flex-col gap-6 items-center z-10">
+
+            <!-- Search Bar Row -->
+            <div class="flex flex-col md:flex-row gap-4 w-full items-center">
+                <!-- Input Wrapper -->
+                <div
+                    class="flex-1 flex items-center bg-white/10 border border-glass-border rounded-2xl px-5 py-3 w-full transition-all duration-300 focus-within:bg-white/15 focus-within:border-secondary focus-within:shadow-[0_0_20px_rgba(108,92,231,0.3)]">
+                    <i class="fas fa-search text-gray-400 mr-3"></i>
+                    <input type="text" id="searchInput"
+                        class="bg-transparent border-none text-white text-lg w-full focus:outline-none placeholder-gray-500"
+                        placeholder="Describe an image (e.g., 'a peaceful sunset')...">
+                </div>
+
+                <!-- Filters -->
+                <div class="flex items-center gap-2 bg-white/5 border border-glass-border rounded-2xl px-4 py-3 h-full">
+                    <label for="kInput" class="text-sm text-gray-400 whitespace-nowrap">Count:</label>
+                    <input type="number" id="kInput" min="1" max="50" value="20"
+                        class="bg-transparent border-b-2 border-transparent focus:border-accent text-center text-white w-12 focus:outline-none transition-colors">
+                </div>
+
+                <!-- Search Button -->
+                <button id="searchBtn"
+                    class="bg-primary hover:bg-secondary text-white font-semibold py-3 px-8 rounded-2xl transition-all duration-300 transform hover:-translate-y-1 hover:shadow-lg shadow-primary/40 whitespace-nowrap w-full md:w-auto">
+                    Search
+                </button>
             </div>
-            <div class="upload-section">
-                <span>or upload an image:</span>
-                <label for="imageUpload" class="upload-btn">
-                    <i class="fas fa-camera"></i> Upload
-                </label>
-                <input type="file" id="imageUpload" accept="image/*" style="display: none;">
+
+            <!-- Upload Section -->
+            <div class="flex flex-col items-center gap-2">
+                <div class="text-sm text-gray-400 flex items-center gap-2">
+                    <span>or convert image to search query:</span>
+                    <label for="imageUpload"
+                        class="cursor-pointer text-accent hover:text-white transition-colors bg-accent/10 hover:bg-accent/20 px-3 py-1 rounded-lg">
+                        <i class="fas fa-camera mr-1"></i> Upload Image
+                    </label>
+                    <input type="file" id="imageUpload" accept="image/*" class="hidden">
+                </div>
+
+                <!-- Image Preview (Hidden by default) -->
+                <div id="image-preview-container" class="hidden flex-col items-center gap-2 mt-2 animate-fade-in">
+                    <div class="relative w-32 h-32 rounded-xl overflow-hidden border-2 border-accent group">
+                        <img id="image-preview" src="" alt="Query Preview" class="w-full h-full object-cover">
+                        <button id="clear-preview"
+                            class="absolute top-1 right-1 bg-black/50 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-500 transition-colors">
+                            <i class="fas fa-times text-xs"></i>
+                        </button>
+                    </div>
+                    <p class="text-xs text-accent">Searching with this image...</p>
+                </div>
             </div>
         </div>
 
-        <div id="loading" class="hidden">
-            <div class="spinner"></div>
-            <p>Searching thousands of images...</p>
+        <!-- content area -->
+        <div class="w-full flex-1 flex flex-col items-center overflow-hidden relative mt-8">
+
+            <!-- Loading -->
+            <div id="loading" class="hidden flex flex-col items-center mt-8">
+                <div class="w-10 h-10 border-4 border-white/10 border-l-accent rounded-full animate-spin mb-3"></div>
+                <p class="text-gray-400 animate-pulse">Searching logic...</p>
+            </div>
+
+            <!-- Results Count -->
+            <div id="results-bar" class="hidden text-gray-400 text-sm mb-4">
+                Found <span id="count" class="text-white font-bold">0</span> matches
+            </div>
+
+            <!-- Gallery Grid -->
+            <div id="gallery"
+                class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 w-full overflow-y-auto pr-2 pb-4 scroll-smooth">
+                <!-- Images injected here -->
+            </div>
         </div>
 
-        <div id="results-count" class="hidden">Found <span id="count">0</span> matches</div>
-
-        <div class="gallery" id="gallery">
-            <!-- Images will be injected here -->
-        </div>
-
-        <footer>
-            <p>Powered by CLIP + OpenSearch on AWS</p>
+        <footer class="mt-4 text-xs text-gray-500 font-light">
+            Powered by CLIP + OpenSearch on AWS
         </footer>
+    </div>
+
+    <!-- Lightbox Modal -->
+    <div id="lightbox"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-md opacity-0 pointer-events-none transition-opacity duration-300">
+
+        <!-- Close Button -->
+        <button
+            class="close-lightbox absolute top-6 right-8 text-white/50 hover:text-white text-5xl font-thin transition-colors z-50">&times;</button>
+
+        <!-- Prev Button -->
+        <button
+            class="nav-btn prev-btn absolute left-4 md:left-8 bg-white/10 hover:bg-white/20 text-white w-12 h-12 md:w-16 md:h-16 rounded-full flex items-center justify-center transition-all transform hover:scale-110 z-50">
+            <i class="fas fa-chevron-left text-xl md:text-2xl"></i>
+        </button>
+
+        <!-- Image Container -->
+        <div class="relative max-w-[90vw] max-h-[85vh] rounded-lg overflow-hidden shadow-2xl">
+            <img class="lightbox-img w-full h-full object-contain" src="" alt="Full view">
+        </div>
+
+        <!-- Next Button -->
+        <button
+            class="nav-btn next-btn absolute right-4 md:right-8 bg-white/10 hover:bg-white/20 text-white w-12 h-12 md:w-16 md:h-16 rounded-full flex items-center justify-center transition-all transform hover:scale-110 z-50">
+            <i class="fas fa-chevron-right text-xl md:text-2xl"></i>
+        </button>
     </div>
 
     <script src="/static/script.js"></script>

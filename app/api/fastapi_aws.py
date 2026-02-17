@@ -270,7 +270,8 @@ async def bulk_index_from_file(index_name: str = Query(...), file_path: str = Qu
     from dev.image_embedding.create_image_index import create_index
     create_index(client, index_name)
 
-    CHUNK_SIZE = 500
+    # 128MB heap is tight! Reduce chunk size to avoid circuit_breaking_exception
+    CHUNK_SIZE = 100
     indexed = 0
     errors = 0
     actions = []

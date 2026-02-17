@@ -1,39 +1,19 @@
 # ============================================================
 # FastAPI AWS Lightweight Entry Point
 # Only includes Image Search + Text Search (no Face, no metrics)
+# Uses LAZY loading — heavy imports (torch, clip) are deferred
 # ============================================================
 
-# Standard library imports
 import io
 import os
 import logging
 import tempfile
 from typing import List, Optional
 
-# Third-party library imports
-from PIL import Image
-from torch.utils.data import DataLoader
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile, APIRouter
 
-# Local application imports — IMAGE & TEXT ONLY (no face imports)
-from dev.image_embedding.create_image_index import create_index
-from dev.image_embedding.embedding_generation import get_image_embedding, get_text_embedding
-from dev.image_embedding.image_batch_embedding import (
-    create_dataloader,
-    generate_embeddings,
-    bulk_index_embeddings,
-)
-from dev.image_embedding.open_search_client import client
-from dev.image_embedding.search import search_knn
-from dev.text_embedding.create_text_index import create_index_text
-from dev.text_embedding.text_batch_embedding import (
-    bulk_index_text_embeddings,
-    create_text_dataloader,
-    generate_text_embeddings,
-)
-
-# Data models — only the ones we need
+# Data models — lightweight, no heavy deps
 from app.model.data_model import (
     TextQueryRequest,
     SearchResult,
@@ -69,13 +49,70 @@ app.add_middleware(
 INDEX_NAME = ""
 IMAGE_DIR = ""
 
+# ---- Lazy-loaded module cache ----
+_modules = {}
+
+
+def _get_opensearch_client():
+    """Lazy-load the OpenSearch client."""
+    if "client" not in _modules:
+        logger.info("Initializing OpenSearch client...")
+        from dev.image_embedding.open_search_client import client
+        _modules["client"] = client
+        logger.info("OpenSearch client ready.")
+    return _modules["client"]
+
+
+def _get_clip_functions():
+    """Lazy-load CLIP model and related functions (triggers torch import)."""
+    if "clip_loaded" not in _modules:
+        logger.info("Loading CLIP model (this may take a few minutes on first call)...")
+        from dev.image_embedding.embedding_generation import get_image_embedding, get_text_embedding
+        from dev.image_embedding.search import search_knn
+        from dev.image_embedding.create_image_index import create_index
+        from dev.image_embedding.image_batch_embedding import (
+            create_dataloader,
+            generate_embeddings,
+            bulk_index_embeddings,
+        )
+        _modules["get_image_embedding"] = get_image_embedding
+        _modules["get_text_embedding"] = get_text_embedding
+        _modules["search_knn"] = search_knn
+        _modules["create_index"] = create_index
+        _modules["create_dataloader"] = create_dataloader
+        _modules["generate_embeddings"] = generate_embeddings
+        _modules["bulk_index_embeddings"] = bulk_index_embeddings
+        _modules["clip_loaded"] = True
+        logger.info("CLIP model loaded successfully!")
+    return _modules
+
+
+def _get_text_functions():
+    """Lazy-load text embedding functions."""
+    if "text_loaded" not in _modules:
+        logger.info("Loading text embedding modules...")
+        from dev.text_embedding.create_text_index import create_index_text
+        from dev.text_embedding.text_batch_embedding import (
+            bulk_index_text_embeddings,
+            create_text_dataloader,
+            generate_text_embeddings,
+        )
+        _modules["create_index_text"] = create_index_text
+        _modules["bulk_index_text_embeddings"] = bulk_index_text_embeddings
+        _modules["create_text_dataloader"] = create_text_dataloader
+        _modules["generate_text_embeddings"] = generate_text_embeddings
+        _modules["text_loaded"] = True
+        logger.info("Text embedding modules loaded.")
+    return _modules
+
+
 # Routers
 image_router = APIRouter(prefix="/images", tags=["Image Operations"])
 text_router = APIRouter(prefix="/texts", tags=["Text Operations"])
 
 
 # =====================
-# Root & Settings
+# Root & Settings (instant — no heavy imports)
 # =====================
 @app.get("/")
 async def read_root():
@@ -86,7 +123,7 @@ async def read_root():
 async def health_check():
     """Health check endpoint for monitoring."""
     try:
-        # Check OpenSearch connectivity
+        client = _get_opensearch_client()
         info = client.info()
         os_status = "connected"
     except Exception:
@@ -113,13 +150,15 @@ async def set_settings(settings: SettingsRequest):
 
 
 # =====================
-# Image Operations
+# Image Operations (lazy-loads CLIP on first call)
 # =====================
 @image_router.post("/search", response_model=ImageSearchResult)
 async def search_image(file: UploadFile = File(...), num_images: int = Form(5)):
     """Search for similar images using CLIP embeddings."""
     logger.info(f"Image search request: {file.filename}")
+    m = _get_clip_functions()
     try:
+        from PIL import Image
         file_content = await file.read()
         image = Image.open(io.BytesIO(file_content)).convert("RGB")
 
@@ -127,11 +166,11 @@ async def search_image(file: UploadFile = File(...), num_images: int = Form(5)):
             image.save(tmp, format="JPEG")
             tmp_path = tmp.name
 
-        image_vector = get_image_embedding(tmp_path)
+        image_vector = m["get_image_embedding"](tmp_path)
         os.unlink(tmp_path)
         logger.info(f"Embedding generated for {file.filename}")
 
-        response = search_knn(image_vector, INDEX_NAME, num_images=num_images)
+        response = m["search_knn"](image_vector, INDEX_NAME, num_images=num_images)
 
         image_ids = [hit["_source"]["image_id"] for hit in response["hits"]["hits"]]
         return ImageSearchResult(query_image_id=file.filename, similar_image_ids=image_ids)
@@ -145,11 +184,13 @@ async def search_image(file: UploadFile = File(...), num_images: int = Form(5)):
 async def batch_index_images(index_name: str = Query(...), image_dir: str = Query(...)):
     """Batch index images into OpenSearch."""
     logger.info(f"Batch index request: index={index_name}, dir={image_dir}")
+    m = _get_clip_functions()
+    client = _get_opensearch_client()
     try:
-        create_index(client, index_name)
-        dataloader = create_dataloader(image_dir, batch_size=16, num_workers=2)
-        embeddings = generate_embeddings(dataloader)
-        response = bulk_index_embeddings(client, index_name, embeddings)
+        m["create_index"](client, index_name)
+        dataloader = m["create_dataloader"](image_dir, batch_size=16, num_workers=2)
+        embeddings = m["generate_embeddings"](dataloader)
+        response = m["bulk_index_embeddings"](client, index_name, embeddings)
         return {"message": "Batch indexing completed successfully", "details": response}
     except Exception as e:
         logger.error(f"Error during batch indexing: {e}", exc_info=True)
@@ -157,15 +198,16 @@ async def batch_index_images(index_name: str = Query(...), image_dir: str = Quer
 
 
 # =====================
-# Text Operations
+# Text Operations (lazy-loads on first call)
 # =====================
 @text_router.post("/search", response_model=SearchResult)
 async def search_text(request: TextQueryRequest):
     """Search for images using a text query via CLIP text encoder."""
     logger.info(f"Text search request: '{request.query}'")
+    m = _get_clip_functions()
     try:
-        vector = get_text_embedding(request.query)
-        response = search_knn(vector, INDEX_NAME, request.num_images)
+        vector = m["get_text_embedding"](request.query)
+        response = m["search_knn"](vector, INDEX_NAME, request.num_images)
         image_ids = [hit["_source"]["image_id"] for hit in response["hits"]["hits"]]
         return SearchResult(image_ids=image_ids)
     except Exception as e:
@@ -177,11 +219,13 @@ async def search_text(request: TextQueryRequest):
 async def batch_index_text(index_name: str = Query(...), text_file_path: str = Query(...)):
     """Batch index text metadata into OpenSearch."""
     logger.info(f"Text batch index: index={index_name}, file={text_file_path}")
+    m = _get_text_functions()
+    client = _get_opensearch_client()
     try:
-        create_index_text(index_name, os_client=client, dimension=512)
-        dataloader = create_text_dataloader(text_file_path, batch_size=16, num_workers=2)
-        embeddings = generate_text_embeddings(dataloader)
-        response = bulk_index_text_embeddings(client, index_name, embeddings)
+        m["create_index_text"](index_name, os_client=client, dimension=512)
+        dataloader = m["create_text_dataloader"](text_file_path, batch_size=16, num_workers=2)
+        embeddings = m["generate_text_embeddings"](dataloader)
+        response = m["bulk_index_text_embeddings"](client, index_name, embeddings)
         return {"message": "Batch indexing completed successfully", "details": response}
     except Exception as e:
         logger.error(f"Error during batch text indexing: {e}", exc_info=True)

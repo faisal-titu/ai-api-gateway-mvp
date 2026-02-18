@@ -162,6 +162,67 @@ Here is the detailed documentation for all available endpoints.
 
 ---
 
+## 🔧 Architecture Details
+
+The following diagram illustrates the complete data flow from the user's browser to the AI model and database.
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant FE as Frontend (UI)
+    participant API as FastAPI Backend
+    participant CLIP as OpenAI CLIP Model
+    participant OS as AWS OpenSearch
+    participant S3 as AWS S3 (Storage)
+
+    Note over U, FE: 1. Search Request
+    U->>FE: Types "Sunset" or Uploads Image
+    FE->>API: HTTP POST /search (JSON/File)
+    
+    rect rgb(240, 248, 255)
+        Note over API, CLIP: 2. Vectorization
+        API->>API: Validate Request
+        API->>CLIP: Send Text/Image Data
+        CLIP-->>API: Return 512-dim Vector
+    end
+    
+    rect rgb(255, 245, 238)
+        Note over API, OS: 3. k-NN Search
+        API->>OS: Search Query (Vector, k=5)
+        Note right of OS: Calculate Cosine Similarity<br>Scan HNSW Graph
+        OS-->>API: Return Top K Image IDs
+    end
+    
+    rect rgb(245, 255, 245)
+        Note over API, FE: 4. Response Construction
+        API->>API: Map IDs to S3 URLs
+        API-->>FE: Return JSON {image_ids: [...]}
+    end
+    
+    Note over FE, U: 5. Visualization
+    FE->>S3: Load Image URLs
+    S3-->>FE: Return Image Bytes
+    FE-->>U: Display Gallery
+```
+
+### The Search Pipeline
+1.  **Input Processing**: The user's query is validated by FastAPI.
+2.  **Semantic Encoding**: 
+    -   **Text**: Tokenized and passed through CLIP Text Encoder.
+    -   **Image**: Resized, normalized, and passed through CLIP Image Encoder.
+    -   **Output**: A dense 512-dimensional vector representing the *meaning* of the input.
+3.  **Vector Search**:
+    -   FastAPI sends this vector to **OpenSearch**.
+    -   OpenSearch uses the **k-NN (k-Nearest Neighbors)** plugin with Hierarchical Navigable Small World (HNSW) graphs to find the closest matching vectors in its index.
+4.  **Result Aggregation**: 
+    -   OpenSearch returns the `image_id` of the best matches.
+    -   FastAPI constructs the final public URLs (pointing to S3).
+5.  **Delivery**: The Frontend renders the grid of images almost instantly.
+
+👉 **For a complete breakdown of every component and data flow, see [ARCHITECTURE.md](ARCHITECTURE.md).**
+
+---
+
 ## 📂 Project Structure
 
 ```
@@ -182,7 +243,9 @@ ai-api-gateway-mvp/
 
 ---
 
-## ❓ Troubleshooting
+## ❓ Operations & Troubleshooting
+
+👉 **For a complete list of commands (start, stop, logs, debug), see [OPERATIONS.md](OPERATIONS.md).**
 
 ### 1. OpenSearch Connection Error
 -   **Symptom**: `ConnectionRefusedError` or timeout in logs.

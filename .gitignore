@@ -177,3 +177,5 @@ extract.py
 
 #ignore the datalake folder and all its contents
 datalake/*
+
+OPERATIONS.md

@@ -36,6 +36,7 @@ services:
     volumes:
       - ./datalake:/app/datalake
       - ./frontend:/app/frontend
+      - onnx-models:/app/model/clip_onnx
     depends_on:
       - opensearch-node1
     networks:
@@ -44,6 +45,7 @@ services:
 
 volumes:
   opensearch-data:
+  onnx-models:
 
 networks:
   app-net:

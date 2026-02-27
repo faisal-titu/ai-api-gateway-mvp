@@ -89,6 +89,25 @@ def _init_inference():
     text_onnx = os.path.join(ONNX_MODEL_DIR, "clip_text_encoder.onnx")
     image_onnx = os.path.join(ONNX_MODEL_DIR, "clip_image_encoder.onnx")
 
+    # --- Lazy ONNX Export (runs once on first startup) ---
+    if not os.path.exists(text_onnx) or not os.path.exists(image_onnx):
+        logger.info("⏳ ONNX models not found. Exporting from PyTorch (one-time operation)...")
+        try:
+            import subprocess
+            os.makedirs(ONNX_MODEL_DIR, exist_ok=True)
+            result = subprocess.run(
+                ["python", "scripts/export_clip_onnx.py",
+                 "--output-dir", ONNX_MODEL_DIR,
+                 "--model-cache", CLIP_MODEL_DIR],
+                capture_output=True, text=True, timeout=600
+            )
+            if result.returncode == 0:
+                logger.info("✅ ONNX export complete!")
+            else:
+                logger.error(f"❌ ONNX export failed: {result.stderr}")
+        except Exception as e:
+            logger.error(f"❌ ONNX export error: {e}")
+
     if os.path.exists(text_onnx) and os.path.exists(image_onnx):
         # --- ONNX Runtime Path (FAST) ---
         logger.info("🚀 ONNX models found! Using ONNX Runtime for inference.")

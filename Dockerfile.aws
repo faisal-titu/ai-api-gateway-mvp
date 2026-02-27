@@ -28,10 +28,7 @@ RUN touch dev/text_embedding/__init__.py
 # CLIP model only (no face models)
 COPY model/clip /app/model/clip
 
-# Export CLIP to ONNX (runs during build, ships optimized models)
-RUN python scripts/export_clip_onnx.py \
-    --output-dir /app/model/clip_onnx \
-    --model-cache /app/model/clip
+# ONNX export happens at startup (not build) to avoid OOM on small instances
 
 # Expose port
 EXPOSE 8000

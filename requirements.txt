@@ -43,3 +43,5 @@ facenet-pytorch
 prometheus-fastapi-instrumentator
 httpx
 opencv-python
+onnxruntime
+onnx

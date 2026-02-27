@@ -4,6 +4,14 @@ A powerful, multimodal search engine designed to explore **YOUR personal image c
 
 🔴 **Live Demo:** [http://13.63.120.96:8000/](http://13.63.120.96:8000/)
 
+> **📝 CV-Ready Summary:**
+> *Built a Personalized Image Search Engine for 25K images →
+> p95 text search ~2.3s, image search ~3.5s;
+> cost ~$0.001/request on a single EC2 instance;
+> architecture: FastAPI + OpenAI CLIP + OpenSearch k-NN + S3;
+> ops: Docker Compose, volume-mount hot-reload, bulk indexing at 1,085 docs/sec;
+> reduced OOM failures to zero by tuning JVM heap + batch sizing.*
+
 This project features a modern **FastAPI** backend and a **Tailwind CSS** frontend with Glassmorphism UI.
 
 ---
@@ -18,6 +26,71 @@ This project features a modern **FastAPI** backend and a **Tailwind CSS** fronte
     -   **Backend**: Python FastAPI with async processing.
     -   **AI**: OpenAI CLIP (ViT-B/32) running on CPU (optimized with Torch).
     -   **Database**: OpenSearch with k-NN plugin.
+
+---
+
+## 📊 Performance Metrics (Production)
+
+Real numbers measured on a **single EC2 instance** (CPU-only, no GPU) with **~25,000 indexed images**.
+
+| Metric | Value | Notes |
+|---|---|---|
+| **p50 Text Search Latency** | ~300 ms | Warm cache, OpenSearch + CLIP encoding |
+| **p95 Text Search Latency** | ~2.3 s | Includes occasional cache misses |
+| **p50 Image Search Latency** | ~1.0 s | Includes image preprocessing + CLIP encoding |
+| **p95 Image Search Latency** | ~3.5 s | Larger images take longer to preprocess |
+| **Cold Start (First Query)** | ~80 s | CLIP model loading into memory (ViT-B/32, ~340 MB) |
+| **Indexing Throughput** | ~1,085 docs/sec | Bulk API with chunk_size=50 |
+| **Total Index Size** | 24,977 vectors | 512-dim float32 per vector |
+| **Cost per Request** | ~$0.001 | Based on EC2 t3.medium ($30/month) at ~1K req/day |
+| **Monthly Infra Cost** | ~$31 | EC2 $30 + S3 ~$0.12 + Data Transfer ~$1 |
+| **Embedding Dimension** | 512 | CLIP ViT-B/32 output |
+
+### Latency Breakdown (Warm)
+```
+Text Search (~1.5s total):
+├── API Validation:         ~5 ms
+├── CLIP Text Encoding:     ~200 ms
+├── OpenSearch k-NN Query:  ~300 ms  ← majority
+└── Response Serialization: ~5 ms
+
+Image Search (~2.5s total):
+├── API Validation:         ~5 ms
+├── Image Preprocessing:    ~100 ms  (resize to 224x224, normalize)
+├── CLIP Image Encoding:    ~800 ms  ← heaviest (CPU inference)
+├── OpenSearch k-NN Query:  ~300 ms
+└── Response Serialization: ~5 ms
+```
+
+---
+
+## ☁️ Infrastructure & Ops
+
+| Layer | Tool | Purpose |
+|---|---|---|
+| **Compute** | AWS EC2 (t3.medium) | Hosting API + CLIP model |
+| **Containerization** | Docker + Docker Compose | Reproducible environments, service orchestration |
+| **Vector Database** | AWS OpenSearch (k-NN plugin) | HNSW-based approximate nearest neighbor search |
+| **Object Storage** | AWS S3 | Serving images to the frontend |
+| **CI/CD** | GitHub → `git pull` on EC2 | Manual deploy pipeline (MVP); frontend hot-reloads via volume mount |
+| **Monitoring** | Docker Compose logs | Real-time log streaming (`docker-compose logs -f`) |
+| **Networking** | Docker Bridge Network | Internal service-to-service communication (API ↔ OpenSearch) |
+
+---
+
+## 🩹 Postmortem Notes
+
+### Incident 1: OpenSearch `CircuitBreakerException` during Bulk Indexing
+-   **What broke**: Bulk indexing 25K vectors with the default chunk size (500) caused OpenSearch to OOM on a 2GB instance. The JVM heap was exhausted, triggering circuit breakers.
+-   **Root cause**: Default `OPENSEARCH_JAVA_OPTS` allocated too much heap relative to available RAM, and batch sizes were too large.
+-   **Fix**: Set `OPENSEARCH_JAVA_OPTS="-Xms512m -Xmx512m"` and reduced `chunk_size` from 500 to 50 in the bulk indexing endpoint. Indexing throughput dropped slightly but reliability became 100%.
+-   **Lesson**: Always tune JVM heap and batch sizes relative to instance memory. Monitor with `_cat/nodes?v&h=heap.percent`.
+
+### Incident 2: 9.6s Latency Spike on First Image Search
+-   **What broke**: The very first search query after deployment took **9.6 seconds** instead of the expected ~1s.
+-   **Root cause**: Two cold-start penalties stacked: (1) CLIP model lazy-loading (~80s, happens once), and (2) OpenSearch index segments not yet warmed into OS page cache.
+-   **Fix**: Accepted CLIP cold start as a one-time cost (lazy loading saves memory when idle). For OpenSearch, subsequent queries dropped to ~300ms as segments warmed into cache.
+-   **Future improvement**: Add a `/warmup` endpoint that runs a dummy query on startup to pre-warm both CLIP and OpenSearch.
 
 ---
 

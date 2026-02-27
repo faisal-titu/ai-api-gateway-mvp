@@ -20,6 +20,7 @@ COPY app ./app
 COPY dev/image_embedding ./dev/image_embedding
 COPY dev/text_embedding ./dev/text_embedding
 COPY dev/__init__.py ./dev/__init__.py
+COPY scripts ./scripts
 
 # Ensure __init__.py exists for text_embedding
 RUN touch dev/text_embedding/__init__.py
@@ -27,8 +28,14 @@ RUN touch dev/text_embedding/__init__.py
 # CLIP model only (no face models)
 COPY model/clip /app/model/clip
 
+# Export CLIP to ONNX (runs during build, ships optimized models)
+RUN python scripts/export_clip_onnx.py \
+    --output-dir /app/model/clip_onnx \
+    --model-cache /app/model/clip
+
 # Expose port
 EXPOSE 8000
 
 # Run the lightweight AWS FastAPI app
 CMD ["uvicorn", "app.api.fastapi_aws:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
+

@@ -34,6 +34,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.on_event("startup")
+async def startup_event():
+    """Eagerly load inference engine at startup (not during first request)."""
+    logger.info("🔄 Starting inference engine initialization...")
+    _init_inference()
+    logger.info("🎉 Server ready to accept requests!")
+
 # --- Routers ---
 image_router = APIRouter(prefix="/images", tags=["Image Operations"])
 text_router = APIRouter(prefix="/texts", tags=["Text Operations"])
@@ -75,6 +83,29 @@ def _get_opensearch_client():
     return _opensearch_client
 
 
+def _get_clip_preprocess():
+    """Create CLIP ViT-B/32 preprocessing transform WITHOUT loading the model.
+    This saves ~340MB of RAM by avoiding clip.load() entirely."""
+    from torchvision.transforms import Compose, Resize, CenterCrop, ToTensor, Normalize
+    try:
+        from torchvision.transforms import InterpolationMode
+        interp = InterpolationMode.BICUBIC
+    except ImportError:
+        from PIL import Image as PILImage
+        interp = PILImage.BICUBIC
+
+    return Compose([
+        Resize(224, interpolation=interp),
+        CenterCrop(224),
+        lambda image: image.convert("RGB"),
+        ToTensor(),
+        Normalize(
+            (0.48145466, 0.4578275, 0.40821073),
+            (0.26862954, 0.26130258, 0.27577711)
+        ),
+    ])
+
+
 def _init_inference():
     """Initialize the inference engine: ONNX if available, else PyTorch."""
     global _inference_engine, _onnx_text_session, _onnx_image_session
@@ -82,9 +113,6 @@ def _init_inference():
 
     if _inference_engine is not None:
         return  # Already initialized
-
-    import clip
-    from PIL import Image
 
     text_onnx = os.path.join(ONNX_MODEL_DIR, "clip_text_encoder.onnx")
     image_onnx = os.path.join(ONNX_MODEL_DIR, "clip_image_encoder.onnx")
@@ -99,7 +127,7 @@ def _init_inference():
                 ["python", "scripts/export_clip_onnx.py",
                  "--output-dir", ONNX_MODEL_DIR,
                  "--model-cache", CLIP_MODEL_DIR],
-                capture_output=True, text=True, timeout=600
+                capture_output=True, text=True, timeout=1800
             )
             if result.returncode == 0:
                 logger.info("✅ ONNX export complete!")
@@ -109,9 +137,10 @@ def _init_inference():
             logger.error(f"❌ ONNX export error: {e}")
 
     if os.path.exists(text_onnx) and os.path.exists(image_onnx):
-        # --- ONNX Runtime Path (FAST) ---
+        # --- ONNX Runtime Path (FAST, low memory) ---
         logger.info("🚀 ONNX models found! Using ONNX Runtime for inference.")
         import onnxruntime as ort
+        import clip
 
         t0 = time.time()
         sess_opts = ort.SessionOptions()
@@ -130,12 +159,11 @@ def _init_inference():
         )
         logger.info(f"  ONNX sessions loaded in {time.time()-t0:.1f}s")
 
-        # Still need CLIP for tokenizer and image preprocessing
+        # Tokenizer is lightweight (no model loading needed)
         _clip_tokenize = clip.tokenize
 
-        # Load just the preprocessing transform (lightweight)
-        _, _clip_preprocess = clip.load("ViT-B/32", device="cpu",
-                                         download_root=CLIP_MODEL_DIR)
+        # Define preprocessing manually — avoids loading 340MB PyTorch model!
+        _clip_preprocess = _get_clip_preprocess()
         _inference_engine = "onnx"
         logger.info("✅ Inference engine: ONNX Runtime (optimized)")
 

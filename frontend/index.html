@@ -121,7 +121,7 @@
         <div class="container mx-auto px-6 relative z-10 text-center">
             <div
                 class="inline-block px-4 py-1.5 rounded-full bg-white/5 border border-white/10 text-accent text-xs font-semibold mb-6 animate-fade-in">
-                ✨ Powered by OpenAI CLIP & AWS OpenSearch
+                ✨ Powered by OpenAI CLIP & FAISS
             </div>
 
             <!-- REBRANDED HERO TEXT -->
@@ -136,8 +136,8 @@
                 A personalized search engine for your own photo collection. Describe the memory, the vibe, or the
                 moment. <br>
                 <!-- ADDED LIVE LINK -->
-                <a href="http://13.63.120.96:8000/"
-                    class="text-accent hover:underline font-semibold mt-2 inline-block">Live Demo: 13.63.120.96:8000</a>
+                <a href="#search-app" class="text-accent hover:underline font-semibold mt-2 inline-block">Try the Live
+                    Demo ↓</a>
             </p>
 
             <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
@@ -272,8 +272,9 @@
                         <i class="fas fa-bolt"></i>
                     </div>
                     <h3 class="text-xl font-bold mb-3">Blazing Fast (k-NN)</h3>
-                    <p class="text-gray-400 leading-relaxed">Powered by AWS OpenSearch k-NN plugin, we search millions
-                        of vectors in milliseconds.</p>
+                    <p class="text-gray-400 leading-relaxed">Powered by FAISS in-memory vector search, we search 25K+
+                        vectors in ~3 milliseconds.
+                    </p>
                 </div>
                 <div class="bg-white/5 border border-white/10 p-8 rounded-3xl hover:bg-white/10 transition-colors">
                     <div
@@ -314,7 +315,7 @@
                     <h3 class="text-xl font-bold mb-3">Your Input</h3>
                     <p class="text-gray-400 text-sm leading-relaxed">
                         You type "a cat sitting on a laptop" or upload an image. The frontend sends this to our FastAPI
-                        + CLIP backend on AWS.
+                        + CLIP backend.
                     </p>
                 </div>
 
@@ -345,8 +346,9 @@
                         03</div>
                     <h3 class="text-xl font-bold mb-3">k-NN Search</h3>
                     <p class="text-gray-400 text-sm leading-relaxed">
-                        OpenSearch matches your vector against 25,000+ indexed images using HNSW and returns the top K
-                        results instantly.
+                        FAISS matches your vector against 25,000+ indexed images using cosine similarity and returns the
+                        top K
+                        results in ~3ms.
                     </p>
                 </div>
             </div>
@@ -405,7 +407,7 @@
                 </div>
             </div>
             <div class="border-t border-white/5 mt-8 pt-8 text-center text-gray-600 text-xs">
-                &copy; 2026 Md Faisal Ahammed. Built with FastAPI, CLIP, and OpenSearch on AWS.
+                &copy; 2026 Md Faisal Ahammed. Built with FastAPI, CLIP, and FAISS on Hugging Face Spaces.
             </div>
         </div>
     </footer>

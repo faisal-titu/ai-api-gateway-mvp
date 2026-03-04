@@ -375,9 +375,9 @@ async def root():
         return FileResponse(index_path)
     return {"message": f"Welcome to the AI Search API (Frontend not found at {FRONTEND_DIR})"}
 
-@app.get("/health")
+@app.api_route("/health", methods=["GET", "HEAD"])
 async def health_check():
-    """Health check — used by UptimeRobot to keep the Space awake."""
+    """Health check — used by UptimeRobot (HEAD) to keep the Space awake."""
     return {
         "status": "ok",
         "engine": _inference_engine or "not_loaded",

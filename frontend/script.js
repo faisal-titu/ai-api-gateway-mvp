@@ -1,7 +1,7 @@
 const API_URL = "";
 
 // ==========================================
-// CONFIGURATION 
+// CONFIGURATION
 const S3_BUCKET_NAME = "ai-image-searching";
 const FOLDER_NAME = "unsplash";
 const S3_REGION = "us-east-1";

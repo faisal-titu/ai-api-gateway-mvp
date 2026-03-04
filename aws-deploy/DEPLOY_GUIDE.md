@@ -181,7 +181,7 @@ curl http://<YOUR_ELASTIC_IP>:8000/
 
 ## Step 7: Upload Your Image Dataset
 
-Your 24,977 Unsplash images (~2.1 GB) are gitignored, so they need to be uploaded separately.
+Your 24,977 S3 images (~2.1 GB) are gitignored, so they need to be uploaded separately.
 
 ### Option A: Use the upload script (recommended)
 

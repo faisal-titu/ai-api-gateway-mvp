@@ -2,15 +2,15 @@
 
 A powerful, multimodal search engine designed to explore **YOUR personal image collection**. By combining **OpenAI CLIP** (semantic understanding) and **AWS OpenSearch**, it enables you to search your own photos using natural language ("a birthday party", "my cat sleeping") or finding similar visual styles.
 
-🔴 **Live Demo:** [http://13.63.120.96:8000/](http://13.63.120.96:8000/)
+🔴 **Live Demo:** [https://faisaltitu-ai-image-search.hf.space/](https://faisaltitu-ai-image-search.hf.space/)
 
 > **📝 CV-Ready Summary:**
 > *Built a Personalized Image Search Engine for 25K images →
-> p95 text search ~2.3s, image search ~3.5s;
-> cost ~$0.001/request on a single EC2 instance;
-> architecture: FastAPI + OpenAI CLIP + OpenSearch k-NN + S3;
-> ops: Docker Compose, volume-mount hot-reload, bulk indexing at 1,085 docs/sec;
-> reduced OOM failures to zero by tuning JVM heap + batch sizing.*
+> p95 text search ~500 ms, image search ~850 ms;
+> cost ~$0.001/request on Hugging Face Spaces;
+> architecture: FastAPI + OpenAI CLIP (ONNX) + FAISS k-NN + S3;
+> ops: Docker, FAISS in-memory index at startup;
+> migrated from AWS EC2 ($31/mo) to HF Spaces (~$0.05/mo).*
 
 This project features a modern **FastAPI** backend and a **Tailwind CSS** frontend with Glassmorphism UI.
 
@@ -42,8 +42,8 @@ Real numbers measured on a **single EC2 instance** (CPU-only, no GPU) with **~25
 | **Cold Start (First Query)** | ~80 s | CLIP model loading into memory (ViT-B/32, ~340 MB) |
 | **Indexing Throughput** | ~1,085 docs/sec | Bulk API with chunk_size=50 |
 | **Total Index Size** | 24,977 vectors | 512-dim float32 per vector |
-| **Cost per Request** | ~$0.001 | Based on EC2 t3.medium ($30/month) at ~1K req/day |
-| **Monthly Infra Cost** | ~$31 | EC2 $30 + S3 ~$0.12 + Data Transfer ~$1 |
+| **Cost per Request** | ~$0.001 | Based on HF Spaces (free) |
+| **Monthly Infra Cost** | ~$0.05 | S3 $0.05 (images only) |
 | **Embedding Dimension** | 512 | CLIP ViT-B/32 output |
 
 ### Latency Breakdown (Warm)
@@ -68,13 +68,12 @@ Image Search (~2.5s total):
 
 | Layer | Tool | Purpose |
 |---|---|---|
-| **Compute** | AWS EC2 (t3.medium) | Hosting API + CLIP model |
-| **Containerization** | Docker + Docker Compose | Reproducible environments, service orchestration |
-| **Vector Database** | AWS OpenSearch (k-NN plugin) | HNSW-based approximate nearest neighbor search |
-| **Object Storage** | AWS S3 | Serving images to the frontend |
-| **CI/CD** | GitHub → `git pull` on EC2 | Manual deploy pipeline (MVP); frontend hot-reloads via volume mount |
-| **Monitoring** | Docker Compose logs | Real-time log streaming (`docker-compose logs -f`) |
-| **Networking** | Docker Bridge Network | Internal service-to-service communication (API ↔ OpenSearch) |
+| **Compute** | Hugging Face Spaces (Docker) | Hosting API + CLIP model (free) |
+| **Containerization** | Docker | Reproducible environment |
+| **Vector Search** | FAISS (in-memory) | Flat inner-product search (~3ms for 25K vectors) |
+| **Object Storage** | AWS S3 | Serving images to the frontend (~$0.05/mo) |
+| **Keep-Alive** | UptimeRobot | Pings /health every 5 min to prevent HF sleep |
+| **Networking** | HTTPS | HF Spaces provides SSL + domain automatically |
 
 ---
 
